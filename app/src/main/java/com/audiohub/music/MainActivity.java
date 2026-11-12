@@ -13,6 +13,7 @@ import android.net.Uri;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -20,6 +21,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -183,9 +185,19 @@ public class MainActivity extends Activity {
     Button makeButton(String value) {
         Button button = new Button(this);
         button.setText(value);
+        button.setAllCaps(false);
         button.setTextColor(white);
-        button.setBackgroundTintList(
-            android.content.res.ColorStateList.valueOf(purple));
+        button.setTextSize(13);
+        button.setTypeface(null, android.graphics.Typeface.BOLD);
+        button.setPadding(dp(18), dp(12), dp(18), dp(12));
+        button.setMinHeight(dp(48));
+        GradientDrawable shape = new GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            new int[]{purple, darken(purple)});
+        shape.setCornerRadius(dp(16));
+        shape.setStroke(dp(1), 0x667FFFFFFF);
+        button.setBackground(shape);
+        button.setElevation(dp(3));
         return button;
     }
 
@@ -194,6 +206,73 @@ public class MainActivity extends Activity {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER);
         return row;
+    }
+
+
+    int dp(float value) {
+        return (int)(value * getResources().getDisplayMetrics().density + 0.5f);
+    }
+
+    int darken(int color) {
+        return android.graphics.Color.rgb(
+            (int)(android.graphics.Color.red(color) * 0.72f),
+            (int)(android.graphics.Color.green(color) * 0.72f),
+            (int)(android.graphics.Color.blue(color) * 0.72f));
+    }
+
+    GradientDrawable roundedCard(int color, int stroke) {
+        GradientDrawable shape = new GradientDrawable();
+        shape.setColor(color);
+        shape.setCornerRadius(dp(18));
+        shape.setStroke(dp(1), stroke);
+        return shape;
+    }
+
+    void styleScreen() {
+        if (content != null) styleViewTree(content);
+    }
+
+    void styleViewTree(View view) {
+        if (view instanceof Button) {
+            Button b = (Button)view;
+            b.setAllCaps(false);
+            b.setTextColor(white);
+            b.setTextSize(13);
+            b.setTypeface(null, android.graphics.Typeface.BOLD);
+            GradientDrawable shape = new GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{purple, darken(purple)});
+            shape.setCornerRadius(dp(16));
+            shape.setStroke(dp(1), 0x667FFFFFFF);
+            b.setBackground(shape);
+            b.setElevation(dp(2));
+        } else if (view instanceof EditText) {
+            EditText e = (EditText)view;
+            e.setTextColor(white);
+            e.setHintTextColor(gray);
+            e.setPadding(dp(16), dp(13), dp(16), dp(13));
+            e.setBackground(roundedCard(0xDD171722, 0x665B3B79));
+        } else if (view instanceof TextView) {
+            TextView t = (TextView)view;
+            String value = t.getText() == null ? "" : t.getText().toString();
+            if (value.contains("\\n") || value.startsWith("♫") ||
+                value.startsWith("NOW PLAYING") || value.contains("songs shown")) {
+                t.setPadding(dp(15), dp(14), dp(15), dp(14));
+                t.setBackground(roundedCard(0xCC171722, 0x554A3A62));
+            }
+        }
+
+        if (view instanceof ScrollView) {
+            view.setClipToPadding(false);
+            view.setPadding(0, dp(5), 0, dp(5));
+        }
+
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup)view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                styleViewTree(group.getChildAt(i));
+            }
+        }
     }
 
     @Override
@@ -238,17 +317,24 @@ public class MainActivity extends Activity {
         root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
 
         LinearLayout navigation = makeRow();
+        navigation.setPadding(0, dp(7), 0, dp(3));
         String[] pages = {"Home", "Library", "Playlists", "AI DJ", "Themes"};
+        String[] icons = {"⌂", "♫", "▤", "✦", "◐"};
 
-        for (String page : pages) {
-            TextView button = makeText(page, 11, gray);
+        for (int i = 0; i < pages.length; i++) {
+            final String page = pages[i];
+            TextView button = makeText(icons[i] + "\n" + page, 10,
+                page.equals("Home") ? purple : gray);
             button.setGravity(Gravity.CENTER);
-            button.setPadding(2, 15, 2, 15);
+            button.setTypeface(null, android.graphics.Typeface.BOLD);
+            button.setPadding(dp(3), dp(8), dp(3), dp(8));
+            button.setBackground(roundedCard(
+                page.equals("Home") ? 0x332A1740 : 0x00171722,
+                page.equals("Home") ? 0x885B3B79 : 0x00333333));
             button.setOnClickListener(v -> showPage(page));
             navigation.addView(button,
                 new LinearLayout.LayoutParams(0, -2, 1));
         }
-
         root.addView(navigation);
         setContentView(root);
 
@@ -270,6 +356,8 @@ public class MainActivity extends Activity {
         } else {
             showHome();
         }
+
+        styleScreen();
     }
 
 
@@ -733,7 +821,8 @@ public class MainActivity extends Activity {
             TextView item = makeText(
                 title + "\n" + artist + "  •  " +
                 formatDuration(track.duration), 14, white);
-            item.setPadding(12, 14, 12, 14);
+            item.setPadding(dp(15), dp(14), dp(15), dp(14));
+            item.setBackground(roundedCard(0xCC171722, 0x554A3A62));
 
             item.setOnClickListener(v -> playQueue(currentTracks, index));
             item.setOnLongClickListener(v -> {
