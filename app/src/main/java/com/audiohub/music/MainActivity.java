@@ -263,7 +263,7 @@ public class MainActivity extends Activity {
         }
 
         if (view instanceof ScrollView) {
-            view.setClipToPadding(false);
+            ((ViewGroup) view).setClipToPadding(false);
             view.setPadding(0, dp(5), 0, dp(5));
         }
 
