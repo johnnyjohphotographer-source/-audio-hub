@@ -234,32 +234,31 @@ public class MainActivity extends Activity {
 
     void styleViewTree(View view) {
         if (view instanceof Button) {
-            Button b = (Button)view;
+            Button b = (Button) view;
+            boolean primary = b == playPauseButton;
+
             b.setAllCaps(false);
-            b.setTextColor(white);
-            b.setTextSize(13);
+            b.setTextSize(12);
             b.setTypeface(null, android.graphics.Typeface.BOLD);
+            b.setTextColor(primary ? 0xFF10130A : white);
+
+            int[] colors = primary
+                ? new int[]{0xFFD9FF58, 0xFFA5D52B}
+                : new int[]{purple, darken(purple)};
+
             GradientDrawable shape = new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{purple, darken(purple)});
+                GradientDrawable.Orientation.TOP_BOTTOM, colors);
             shape.setCornerRadius(dp(16));
-            shape.setStroke(dp(1), 0x66FFFFFF);
+            shape.setStroke(dp(1), primary ? 0x99FFFFFF : 0x66FFFFFF);
             b.setBackground(shape);
-            b.setElevation(dp(2));
+            b.setElevation(dp(3));
+
         } else if (view instanceof EditText) {
-            EditText e = (EditText)view;
+            EditText e = (EditText) view;
             e.setTextColor(white);
             e.setHintTextColor(gray);
             e.setPadding(dp(16), dp(13), dp(16), dp(13));
-            e.setBackground(roundedCard(0xDD171722, 0x665B3B79));
-        } else if (view instanceof TextView) {
-            TextView t = (TextView)view;
-            String value = t.getText() == null ? "" : t.getText().toString();
-            if (value.contains("\\n") || value.startsWith("♫") ||
-                value.startsWith("NOW PLAYING") || value.contains("songs shown")) {
-                t.setPadding(dp(15), dp(14), dp(15), dp(14));
-                t.setBackground(roundedCard(0xCC171722, 0x554A3A62));
-            }
+            e.setBackground(roundedCard(0xFF171722, 0x665B3B79));
         }
 
         if (view instanceof ScrollView) {
@@ -268,7 +267,7 @@ public class MainActivity extends Activity {
         }
 
         if (view instanceof ViewGroup) {
-            ViewGroup group = (ViewGroup)view;
+            ViewGroup group = (ViewGroup) view;
             for (int i = 0; i < group.getChildCount(); i++) {
                 styleViewTree(group.getChildAt(i));
             }
@@ -481,97 +480,170 @@ public class MainActivity extends Activity {
     }
 
     void addPlayerControls() {
-        nowPlaying = makeText("NOW PLAYING: Audio Hub", 13, purple);
-        nowPlaying.setPadding(0, 8, 0, 8);
-        content.addView(nowPlaying);
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(14), dp(12), dp(14), dp(12));
+        card.setBackground(roundedCard(0xFF171522, 0x665B3B79));
 
+        nowPlaying = makeText("NOW PLAYING  •  AUDIO HUB", 12, purple);
+        nowPlaying.setTypeface(null, android.graphics.Typeface.BOLD);
+        card.addView(nowPlaying);
+
+        LinearLayout transport = makeRow();
+
+        previousButton = makeButton("PREV");
         playPauseButton = makeButton(isPlaying ? "PAUSE" : "RESUME");
-        content.addView(playPauseButton);
-
-        Button micButton = makeButton("🎙 VOICE COMMAND");
-        content.addView(micButton);
-        micButton.setOnClickListener(v -> startVoiceCommand());
-
-        LinearLayout controls = makeRow();
-        previousButton = makeButton("PREVIOUS");
         nextButton = makeButton("NEXT");
 
-        controls.addView(previousButton,
+        transport.addView(previousButton,
             new LinearLayout.LayoutParams(0, -2, 1));
-        controls.addView(nextButton,
+        transport.addView(playPauseButton,
+            new LinearLayout.LayoutParams(0, -2, 1.25f));
+        transport.addView(nextButton,
             new LinearLayout.LayoutParams(0, -2, 1));
-        content.addView(controls);
 
-        previousButton.setOnClickListener(v -> sendAction(PlaybackService.ACTION_PREVIOUS));
-        nextButton.setOnClickListener(v -> sendAction(PlaybackService.ACTION_NEXT));
+        card.addView(transport);
+
+        previousButton.setOnClickListener(v ->
+            sendAction(PlaybackService.ACTION_PREVIOUS));
+        nextButton.setOnClickListener(v ->
+            sendAction(PlaybackService.ACTION_NEXT));
 
         playPauseButton.setOnClickListener(v ->
             sendAction(isPlaying
                 ? PlaybackService.ACTION_PAUSE
                 : PlaybackService.ACTION_RESUME));
 
-        LinearLayout modes = makeRow();
-        Button shuffleButton = makeButton(shuffle ? "SHUFFLE: ON" : "SHUFFLE: OFF");
-        Button repeatButton = makeButton(repeat ? "REPEAT: ON" : "REPEAT: OFF");
+        LinearLayout extras = makeRow();
 
-        modes.addView(shuffleButton, new LinearLayout.LayoutParams(0, -2, 1));
-        modes.addView(repeatButton, new LinearLayout.LayoutParams(0, -2, 1));
-        content.addView(modes);
+        Button micButton = makeButton("MIC  VOICE");
+        Button shuffleButton = makeButton(
+            shuffle ? "SHUFFLE ON" : "SHUFFLE OFF");
+        Button repeatButton = makeButton(
+            repeat ? "REPEAT ON" : "REPEAT OFF");
+
+        extras.addView(micButton,
+            new LinearLayout.LayoutParams(0, -2, 1));
+        extras.addView(shuffleButton,
+            new LinearLayout.LayoutParams(0, -2, 1));
+        extras.addView(repeatButton,
+            new LinearLayout.LayoutParams(0, -2, 1));
+
+        card.addView(extras);
+
+        micButton.setOnClickListener(v -> startVoiceCommand());
 
         shuffleButton.setOnClickListener(v -> {
             shuffle = !shuffle;
             updateModes();
-            shuffleButton.setText(shuffle ? "SHUFFLE: ON" : "SHUFFLE: OFF");
+            shuffleButton.setText(shuffle ? "SHUFFLE ON" : "SHUFFLE OFF");
         });
 
         repeatButton.setOnClickListener(v -> {
             repeat = !repeat;
             updateModes();
-            repeatButton.setText(repeat ? "REPEAT: ON" : "REPEAT: OFF");
+            repeatButton.setText(repeat ? "REPEAT ON" : "REPEAT OFF");
         });
+
+        LinearLayout.LayoutParams params =
+            new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(0, dp(10), 0, dp(10));
+        content.addView(card, params);
     }
 
     void showHome() {
+        TextView greeting = makeText("WELCOME BACK", 12, purple);
+        greeting.setTypeface(null, android.graphics.Typeface.BOLD);
+        greeting.setPadding(dp(3), dp(8), 0, dp(4));
+        content.addView(greeting);
+
         TextView heading = makeText(
-            "\nWELCOME TO AUDIO HUB\n\nYour music, your world.",
-            20, white);
-        heading.setGravity(Gravity.CENTER);
-        content.addView(heading,
-            new LinearLayout.LayoutParams(-1, 0, 1));
+            "GOOD MUSIC.\nGREAT ENERGY.", 29, white);
+        heading.setTypeface(null, android.graphics.Typeface.BOLD);
+        heading.setPadding(dp(3), 0, dp(3), dp(8));
+        content.addView(heading);
+
+        LinearLayout hero = new LinearLayout(this);
+        hero.setOrientation(LinearLayout.VERTICAL);
+        hero.setPadding(dp(20), dp(20), dp(20), dp(20));
+
+        GradientDrawable heroBackground = new GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            new int[]{0xFF39205F, 0xFF18233B, 0xFF11111B});
+        heroBackground.setCornerRadius(dp(25));
+        heroBackground.setStroke(dp(1), 0x665B4A91);
+        hero.setBackground(heroBackground);
+
+        TextView label = makeText("AUDIO HUB  /  SIGNATURE EDITION",
+            10, 0xFFD9FF58);
+        label.setTypeface(null, android.graphics.Typeface.BOLD);
+        hero.addView(label);
+
+        TextView heroTitle = makeText(
+            "YOUR SOUND.\nYOUR UNIVERSE.", 23, 0xFFFFFFFF);
+        heroTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        heroTitle.setPadding(0, dp(13), 0, dp(8));
+        hero.addView(heroTitle);
+
+        TextView heroInfo = makeText(
+            currentTracks.size() + " tracks in your music world",
+            12, 0xFFD0C8E0);
+        hero.addView(heroInfo);
+
+        Button scan = makeButton("＋  SCAN MY MUSIC");
+        LinearLayout.LayoutParams scanParams =
+            new LinearLayout.LayoutParams(-1, -2);
+        scanParams.setMargins(0, dp(17), 0, 0);
+        hero.addView(scan, scanParams);
+        scan.setOnClickListener(v -> checkAudioPermission());
+
+        LinearLayout.LayoutParams heroParams =
+            new LinearLayout.LayoutParams(-1, -2);
+        heroParams.setMargins(0, dp(8), 0, dp(8));
+        content.addView(hero, heroParams);
+
+        TextView section = makeText("YOUR PLAYER", 12, gray);
+        section.setTypeface(null, android.graphics.Typeface.BOLD);
+        section.setPadding(dp(3), dp(8), 0, 0);
+        content.addView(section);
 
         addPlayerControls();
 
-        Button scan = makeButton("SCAN MY MUSIC");
-        content.addView(scan);
-        scan.setOnClickListener(v -> checkAudioPermission());
-
         status = makeText(
             currentTracks.isEmpty()
-                ? "Scan your phone to load your songs."
-                : currentTracks.size() + " songs in your library",
-            13, gray);
+                ? "Your music library is waiting. Scan to begin."
+                : currentTracks.size() + " songs ready to play",
+            12, gray);
         status.setGravity(Gravity.CENTER);
+        status.setPadding(dp(5), dp(5), dp(5), dp(8));
         content.addView(status);
     }
 
     void showLibrary() {
-        TextView heading = makeText("YOUR MUSIC LIBRARY", 19, white);
-        heading.setTypeface(null, 1);
-        heading.setPadding(0, 12, 0, 8);
+        TextView heading = makeText("YOUR LIBRARY", 24, white);
+        heading.setTypeface(null, android.graphics.Typeface.BOLD);
+        heading.setPadding(0, dp(8), 0, dp(5));
         content.addView(heading);
+
+        TextView subtitle = makeText(
+            currentTracks.size() + " TRACKS  •  YOUR COLLECTION",
+            10, purple);
+        content.addView(subtitle);
 
         addPlayerControls();
 
-        Button scanButton = makeButton("SCAN / REFRESH MUSIC");
+        Button scanButton = makeButton("＋  SCAN / REFRESH MUSIC");
         content.addView(scanButton);
 
-        status = makeText("Long-press a song to add it to a playlist.", 12, gray);
-        status.setPadding(0, 8, 0, 8);
+        status = makeText(
+            "Tap a song to play  •  Long-press to add to playlist",
+            11, gray);
+        status.setPadding(0, dp(7), 0, dp(7));
         content.addView(status);
 
         searchInput = new EditText(this);
         searchInput.setSingleLine(true);
-        searchInput.setHint("Search songs or artists");
+        searchInput.setHint("⌕  Search songs or artists");
         searchInput.setHintTextColor(gray);
         searchInput.setTextColor(white);
         content.addView(searchInput);
@@ -580,13 +652,19 @@ public class MainActivity extends Activity {
         trackList = new LinearLayout(this);
         trackList.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(trackList);
-        content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        content.addView(scroll,
+            new LinearLayout.LayoutParams(-1, 0, 1));
 
         searchInput.addTextChangedListener(new TextWatcher() {
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            public void beforeTextChanged(
+                CharSequence s, int start, int count, int after) {}
+
+            public void onTextChanged(
+                CharSequence s, int start, int before, int count) {
                 renderTrackList(s.toString());
             }
+
             public void afterTextChanged(Editable e) {}
         });
 
@@ -806,45 +884,60 @@ public class MainActivity extends Activity {
         if (trackList == null) return;
         trackList.removeAllViews();
 
-        String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        String q = query == null
+            ? "" : query.trim().toLowerCase(Locale.ROOT);
         int shown = 0;
 
         for (int i = 0; i < currentTracks.size(); i++) {
             final int index = i;
             AudioTrack track = currentTracks.get(i);
-            String title = track.title == null ? "" : track.title;
-            String artist = track.artist == null ? "" : track.artist;
 
-            if (!title.toLowerCase(Locale.ROOT).contains(q) &&
-                    !artist.toLowerCase(Locale.ROOT).contains(q)) continue;
+            String title = track.title == null
+                ? "Unknown title" : track.title;
+            String artist = track.artist == null
+                ? "Unknown artist" : track.artist;
+
+            if (!title.toLowerCase(Locale.ROOT).contains(q)
+                    && !artist.toLowerCase(Locale.ROOT).contains(q)) {
+                continue;
+            }
 
             TextView item = makeText(
-                title + "\n" + artist + "  •  " +
-                formatDuration(track.duration), 14, white);
-            item.setPadding(dp(15), dp(14), dp(15), dp(14));
-            item.setBackground(roundedCard(0xCC171722, 0x554A3A62));
+                String.format(Locale.getDefault(), "%02d", shown + 1)
+                    + "   ♫  " + title + "\n"
+                    + artist + "   •   " + formatDuration(track.duration),
+                13, white);
 
-            item.setOnClickListener(v -> playQueue(currentTracks, index));
+            item.setPadding(dp(15), dp(15), dp(12), dp(15));
+            item.setBackground(roundedCard(0xFF171722, 0x554A3A62));
+
+            LinearLayout.LayoutParams itemParams =
+                new LinearLayout.LayoutParams(-1, -2);
+            itemParams.setMargins(0, dp(4), 0, dp(4));
+            trackList.addView(item, itemParams);
+
+            item.setOnClickListener(v ->
+                playQueue(currentTracks, index));
+
             item.setOnLongClickListener(v -> {
                 addTrackToPlaylist(track);
                 return true;
             });
 
-            trackList.addView(item);
-            View line = new View(this);
-            line.setBackgroundColor(0xFF292936);
-            trackList.addView(line,
-                new LinearLayout.LayoutParams(-1, 1));
             shown++;
         }
 
-        if (status != null) status.setText(shown + " songs shown • Long-press to add to playlist");
+        if (status != null) {
+            status.setText(shown + " songs shown  •  Long-press to add");
+        }
 
         if (shown == 0) {
             TextView empty = makeText(
-                q.isEmpty() ? "No music loaded. Scan your music." : "No matching songs.",
+                q.isEmpty()
+                    ? "No music loaded. Scan your phone to begin."
+                    : "No matching songs found.",
                 14, gray);
-            empty.setPadding(0, 20, 0, 20);
+            empty.setPadding(dp(10), dp(22), dp(10), dp(22));
             trackList.addView(empty);
         }
     }
@@ -888,11 +981,12 @@ public class MainActivity extends Activity {
     }
 
     void showPlaylists() {
-        TextView heading = makeText("MY PLAYLISTS", 20, white);
-        heading.setPadding(0, 15, 0, 12);
+        TextView heading = makeText("YOUR PLAYLISTS", 24, white);
+        heading.setTypeface(null, android.graphics.Typeface.BOLD);
+        heading.setPadding(0, dp(10), 0, dp(8));
         content.addView(heading);
 
-        Button create = makeButton("＋ CREATE PLAYLIST");
+        Button create = makeButton("＋  CREATE PLAYLIST");
         content.addView(create);
         create.setOnClickListener(v -> createPlaylistDialog());
 
@@ -902,20 +996,34 @@ public class MainActivity extends Activity {
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(list);
-        content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        content.addView(scroll,
+            new LinearLayout.LayoutParams(-1, 0, 1));
 
         List<String> names = playlistStore.names();
+
         if (names.isEmpty()) {
-            list.addView(makeText("No playlists yet. Create your first playlist.",
+            list.addView(makeText(
+                "Your playlists will appear here.\nCreate your first collection.",
                 14, gray));
         }
 
         for (String name : names) {
             TextView item = makeText(
-                "♫  " + name + "  (" + playlistStore.tracks(name).size() + " songs)",
-                15, white);
-            item.setPadding(12, 18, 12, 18);
+                "♫   " + name + "\n"
+                    + playlistStore.tracks(name).size() + " songs  •  OPEN",
+                14, white);
+
+            item.setPadding(dp(16), dp(17), dp(12), dp(17));
+            item.setBackground(roundedCard(0xFF171722, 0x554A3A62));
+
+            LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(-1, -2);
+            params.setMargins(0, dp(4), 0, dp(4));
+            list.addView(item, params);
+
             item.setOnClickListener(v -> openPlaylist(name));
+
             item.setOnLongClickListener(v -> {
                 new AlertDialog.Builder(this)
                     .setTitle("Delete " + name + "?")
@@ -927,7 +1035,6 @@ public class MainActivity extends Activity {
                     }).show();
                 return true;
             });
-            list.addView(item);
         }
     }
 
@@ -975,11 +1082,12 @@ public class MainActivity extends Activity {
     void openPlaylist(String name) {
         content.removeAllViews();
 
-        TextView heading = makeText(name, 20, white);
-        heading.setPadding(0, 12, 0, 12);
+        TextView heading = makeText(name, 23, white);
+        heading.setTypeface(null, android.graphics.Typeface.BOLD);
+        heading.setPadding(0, dp(10), 0, dp(10));
         content.addView(heading);
 
-        Button back = makeButton("BACK TO PLAYLISTS");
+        Button back = makeButton("←  BACK TO PLAYLISTS");
         content.addView(back);
         back.setOnClickListener(v -> showPage("Playlists"));
 
@@ -989,7 +1097,9 @@ public class MainActivity extends Activity {
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(list);
-        content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        content.addView(scroll,
+            new LinearLayout.LayoutParams(-1, 0, 1));
 
         List<Long> ids = playlistStore.tracks(name);
         List<AudioTrack> queue = new ArrayList<>();
@@ -1006,10 +1116,20 @@ public class MainActivity extends Activity {
         for (int i = 0; i < queue.size(); i++) {
             final int position = i;
             AudioTrack track = queue.get(i);
+
             TextView item = makeText(
-                track.title + "\n" + track.artist, 14, white);
-            item.setPadding(12, 15, 12, 15);
+                "♫   " + track.title + "\n" + track.artist,
+                14, white);
+            item.setPadding(dp(15), dp(15), dp(12), dp(15));
+            item.setBackground(roundedCard(0xFF171722, 0x554A3A62));
+
+            LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(-1, -2);
+            params.setMargins(0, dp(4), 0, dp(4));
+            list.addView(item, params);
+
             item.setOnClickListener(v -> playQueue(queue, position));
+
             item.setOnLongClickListener(v -> {
                 new AlertDialog.Builder(this)
                     .setMessage("Remove this song from playlist?")
@@ -1020,45 +1140,58 @@ public class MainActivity extends Activity {
                     }).show();
                 return true;
             });
-            list.addView(item);
         }
 
         if (queue.isEmpty()) {
             list.addView(makeText(
-                "No songs here. Scan music and long-press songs to add them.",
+                "No songs here yet. Add music from your Library.",
                 14, gray));
         }
     }
 
     void showDj() {
-        TextView heading = makeText("OFFLINE AI DJ", 21, white);
-        heading.setPadding(0, 18, 0, 8);
+        TextView heading = makeText("OFFLINE DJ", 25, white);
+        heading.setTypeface(null, android.graphics.Typeface.BOLD);
+        heading.setPadding(0, dp(10), 0, dp(5));
         content.addView(heading);
 
         TextView info = makeText(
-            "Create a mix from music stored on your phone. No internet required.",
-            13, gray);
+            "Build a mood-based mix from music stored on your phone.",
+            12, gray);
         content.addView(info);
 
         addPlayerControls();
 
+        TextView moodTitle = makeText("CHOOSE YOUR MOOD", 12, purple);
+        moodTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        content.addView(moodTitle);
+
         String[] moods = {"CHILL", "ENERGY", "ROMANTIC", "FOCUS"};
-        for (String mood : moods) {
-            Button button = makeButton("CREATE " + mood + " MIX");
-            content.addView(button);
-            button.setOnClickListener(v -> createDjMix(mood));
+
+        for (int i = 0; i < moods.length; i += 2) {
+            LinearLayout row = makeRow();
+
+            for (int j = i; j < i + 2; j++) {
+                final String mood = moods[j];
+                Button button = makeButton("✦  " + mood);
+
+                row.addView(button,
+                    new LinearLayout.LayoutParams(0, -2, 1));
+
+                button.setOnClickListener(v -> createDjMix(mood));
+            }
+
+            content.addView(row);
         }
 
-        View spacer = new View(this);
-        content.addView(spacer, new LinearLayout.LayoutParams(1, 15));
-
-        TextView online = makeText("ONLINE AI DJ", 19, purple);
+        TextView online = makeText("ONLINE AI DJ", 18, purple);
+        online.setPadding(0, dp(18), 0, dp(5));
         content.addView(online);
 
         TextView onlineInfo = makeText(
-            "ChatGPT-powered music recommendations will need an API key and internet connection. "
-            + "Online chat is not active yet.",
-            13, gray);
+            "ChatGPT-powered recommendations need an API key "
+                + "and internet connection. Online chat is not active yet.",
+            12, gray);
         content.addView(onlineInfo);
     }
 
