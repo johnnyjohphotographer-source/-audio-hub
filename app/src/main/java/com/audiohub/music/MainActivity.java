@@ -26,7 +26,7 @@ public class MainActivity extends Activity {
 
     LinearLayout root, content, trackList;
     TextView status, nowPlaying;
-    Button playPauseButton;
+    Button playPauseButton, previousButton, nextButton;
 
     AudioPlayer audioPlayer;
     List<AudioTrack> currentTracks;
@@ -125,6 +125,35 @@ public class MainActivity extends Activity {
         playPauseButton.setEnabled(false);
         content.addView(playPauseButton);
 
+        LinearLayout controls = new LinearLayout(this);
+        controls.setGravity(Gravity.CENTER);
+        previousButton = makeButton("PREVIOUS");
+        nextButton = makeButton("NEXT");
+
+        controls.addView(previousButton,
+            new LinearLayout.LayoutParams(0, -2, 1));
+        controls.addView(nextButton,
+            new LinearLayout.LayoutParams(0, -2, 1));
+        content.addView(controls);
+
+        previousButton.setEnabled(false);
+        nextButton.setEnabled(false);
+
+        previousButton.setOnClickListener(v -> {
+            if (currentTracks == null || currentTracks.isEmpty()) return;
+            int index = currentIndex <= 0
+                ? currentTracks.size() - 1 : currentIndex - 1;
+            playTrack(index);
+        });
+
+        nextButton.setOnClickListener(v -> {
+            if (currentTracks == null || currentTracks.isEmpty()) return;
+            int index = currentIndex < 0 ||
+                currentIndex >= currentTracks.size() - 1
+                ? 0 : currentIndex + 1;
+            playTrack(index);
+        });
+
         playPauseButton.setOnClickListener(v -> {
             if (!isPrepared) return;
 
@@ -206,6 +235,8 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> {
                 currentTracks = tracks;
                 trackList.removeAllViews();
+                previousButton.setEnabled(!tracks.isEmpty());
+                nextButton.setEnabled(!tracks.isEmpty());
                 status.setText(tracks.size() + " songs found");
 
                 if (tracks.isEmpty()) {
