@@ -195,7 +195,7 @@ public class MainActivity extends Activity {
             GradientDrawable.Orientation.TOP_BOTTOM,
             new int[]{purple, darken(purple)});
         shape.setCornerRadius(dp(16));
-        shape.setStroke(dp(1), 0x667FFFFFFF);
+        shape.setStroke(dp(1), 0x66FFFFFF);
         button.setBackground(shape);
         button.setElevation(dp(3));
         return button;
@@ -243,7 +243,7 @@ public class MainActivity extends Activity {
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{purple, darken(purple)});
             shape.setCornerRadius(dp(16));
-            shape.setStroke(dp(1), 0x667FFFFFFF);
+            shape.setStroke(dp(1), 0x66FFFFFF);
             b.setBackground(shape);
             b.setElevation(dp(2));
         } else if (view instanceof EditText) {
