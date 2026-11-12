@@ -24,10 +24,14 @@ public class MainActivity extends Activity {
     int white = 0xFFFFFFFF;
     int gray = 0xFFA1A1AA;
 
-    LinearLayout root;
-    LinearLayout content;
-    LinearLayout trackList;
-    TextView status;
+    LinearLayout root, content, trackList;
+    TextView status, nowPlaying;
+    Button playPauseButton;
+
+    AudioPlayer audioPlayer;
+    List<AudioTrack> currentTracks;
+    boolean isPrepared = false;
+    int currentIndex = -1;
 
     TextView makeText(String value, int size, int color) {
         TextView text = new TextView(this);
@@ -50,6 +54,8 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        audioPlayer = new AudioPlayer();
+
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(20, 30, 20, 15);
@@ -67,8 +73,7 @@ public class MainActivity extends Activity {
 
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        root.addView(content, new LinearLayout.LayoutParams(
-            -1, 0, 1));
+        root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
 
         LinearLayout navigation = new LinearLayout(this);
         navigation.setGravity(Gravity.CENTER);
@@ -80,7 +85,6 @@ public class MainActivity extends Activity {
             button.setGravity(Gravity.CENTER);
             button.setPadding(4, 18, 4, 18);
             button.setOnClickListener(v -> showPage(page));
-
             navigation.addView(button,
                 new LinearLayout.LayoutParams(0, -2, 1));
         }
@@ -112,6 +116,26 @@ public class MainActivity extends Activity {
         heading.setTypeface(null, 1);
         heading.setPadding(0, 20, 0, 15);
         content.addView(heading);
+
+        nowPlaying = makeText("NOTHING PLAYING", 14, purple);
+        nowPlaying.setPadding(0, 8, 0, 8);
+        content.addView(nowPlaying);
+
+        playPauseButton = makeButton("PLAY");
+        playPauseButton.setEnabled(false);
+        content.addView(playPauseButton);
+
+        playPauseButton.setOnClickListener(v -> {
+            if (!isPrepared) return;
+
+            if (audioPlayer.isPlaying()) {
+                audioPlayer.pause();
+                playPauseButton.setText("RESUME");
+            } else {
+                audioPlayer.resume();
+                playPauseButton.setText("PAUSE");
+            }
+        });
 
         Button scanButton = makeButton("SCAN MY MUSIC");
         content.addView(scanButton);
@@ -145,7 +169,6 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 23 &&
                 checkSelfPermission(permission)
                 != PackageManager.PERMISSION_GRANTED) {
-
             requestPermissions(
                 new String[]{permission},
                 AUDIO_PERMISSION_REQUEST);
@@ -167,9 +190,8 @@ public class MainActivity extends Activity {
             if (grantResults.length > 0 &&
                     grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 scanMusic();
-            } else {
-                status.setText(
-                    "Permission denied. Allow music access to scan.");
+            } else if (status != null) {
+                status.setText("Permission denied. Allow music access.");
             }
         }
     }
@@ -182,10 +204,9 @@ public class MainActivity extends Activity {
             List<AudioTrack> tracks = AudioScanner.scan(this);
 
             runOnUiThread(() -> {
+                currentTracks = tracks;
                 trackList.removeAllViews();
-
-                status.setText(
-                    tracks.size() + " songs found");
+                status.setText(tracks.size() + " songs found");
 
                 if (tracks.isEmpty()) {
                     TextView empty = makeText(
@@ -196,7 +217,10 @@ public class MainActivity extends Activity {
                     return;
                 }
 
-                for (AudioTrack track : tracks) {
+                for (int i = 0; i < tracks.size(); i++) {
+                    final int index = i;
+                    AudioTrack track = tracks.get(i);
+
                     TextView item = makeText(
                         track.title + "\n" +
                         track.artist + "  •  " +
@@ -204,6 +228,7 @@ public class MainActivity extends Activity {
                         15, white);
 
                     item.setPadding(12, 15, 12, 15);
+                    item.setOnClickListener(v -> playTrack(index));
                     trackList.addView(item);
 
                     View line = new View(this);
@@ -215,9 +240,58 @@ public class MainActivity extends Activity {
         }).start();
     }
 
+    void playTrack(int index) {
+        if (currentTracks == null ||
+                index < 0 || index >= currentTracks.size()) return;
+
+        currentIndex = index;
+        isPrepared = false;
+
+        AudioTrack track = currentTracks.get(index);
+
+        nowPlaying.setText("LOADING: " + track.title);
+        status.setText("Preparing audio...");
+        playPauseButton.setEnabled(false);
+        playPauseButton.setText("LOADING");
+
+        audioPlayer.play(this, track, new AudioPlayer.Listener() {
+            @Override
+            public void onPrepared() {
+                isPrepared = true;
+                nowPlaying.setText("NOW PLAYING: " + track.title);
+                status.setText("Playing • " + track.artist);
+                playPauseButton.setEnabled(true);
+                playPauseButton.setText("PAUSE");
+            }
+
+            @Override
+            public void onCompleted() {
+                isPrepared = false;
+                status.setText("Song finished.");
+                playPauseButton.setText("PLAY");
+            }
+
+            @Override
+            public void onError(String message) {
+                isPrepared = false;
+                status.setText("Playback error: " + message);
+                playPauseButton.setText("PLAY");
+                playPauseButton.setEnabled(false);
+            }
+        });
+    }
+
     String formatDuration(long milliseconds) {
         long seconds = milliseconds / 1000;
         return String.format(Locale.getDefault(),
             "%d:%02d", seconds / 60, seconds % 60);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (audioPlayer != null) {
+            audioPlayer.release();
+        }
+        super.onDestroy();
     }
 }
