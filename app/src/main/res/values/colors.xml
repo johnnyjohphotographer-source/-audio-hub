@@ -1,0 +1,8 @@
+<resources>
+    <color name="audio_black">#09090F</color>
+    <color name="audio_surface">#171721</color>
+    <color name="audio_purple">#A855F7</color>
+    <color name="audio_blue">#3B82F6</color>
+    <color name="audio_white">#FFFFFF</color>
+    <color name="audio_gray">#A1A1AA</color>
+</resources>
