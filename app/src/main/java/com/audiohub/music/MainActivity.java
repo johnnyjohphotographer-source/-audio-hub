@@ -7,7 +7,10 @@ import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -27,6 +30,7 @@ public class MainActivity extends Activity {
     LinearLayout root, content, trackList;
     TextView status, nowPlaying;
     Button playPauseButton, previousButton, nextButton;
+    EditText searchInput;
 
     AudioPlayer audioPlayer;
     List<AudioTrack> currentTracks;
@@ -175,6 +179,21 @@ public class MainActivity extends Activity {
         status.setPadding(0, 15, 0, 15);
         content.addView(status);
 
+        searchInput = new EditText(this);
+        searchInput.setSingleLine(true);
+        searchInput.setHint("Search songs or artists");
+        searchInput.setHintTextColor(gray);
+        searchInput.setTextColor(white);
+        content.addView(searchInput);
+
+        searchInput.addTextChangedListener(new TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                renderTrackList(s.toString());
+            }
+            public void afterTextChanged(Editable e) {}
+        });
+
         ScrollView scroll = new ScrollView(this);
         trackList = new LinearLayout(this);
         trackList.setOrientation(LinearLayout.VERTICAL);
@@ -234,41 +253,58 @@ public class MainActivity extends Activity {
 
             runOnUiThread(() -> {
                 currentTracks = tracks;
-                trackList.removeAllViews();
                 previousButton.setEnabled(!tracks.isEmpty());
                 nextButton.setEnabled(!tracks.isEmpty());
-                status.setText(tracks.size() + " songs found");
-
-                if (tracks.isEmpty()) {
-                    TextView empty = makeText(
-                        "No music found. Check your storage and SD card.",
-                        15, gray);
-                    empty.setPadding(0, 20, 0, 20);
-                    trackList.addView(empty);
-                    return;
-                }
-
-                for (int i = 0; i < tracks.size(); i++) {
-                    final int index = i;
-                    AudioTrack track = tracks.get(i);
-
-                    TextView item = makeText(
-                        track.title + "\n" +
-                        track.artist + "  •  " +
-                        formatDuration(track.duration),
-                        15, white);
-
-                    item.setPadding(12, 15, 12, 15);
-                    item.setOnClickListener(v -> playTrack(index));
-                    trackList.addView(item);
-
-                    View line = new View(this);
-                    line.setBackgroundColor(0xFF292936);
-                    trackList.addView(line,
-                        new LinearLayout.LayoutParams(-1, 1));
-                }
+                renderTrackList(searchInput.getText().toString());
             });
         }).start();
+    }
+
+    void renderTrackList(String query) {
+        trackList.removeAllViews();
+
+        if (currentTracks == null) return;
+
+        String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        int shown = 0;
+
+        for (int i = 0; i < currentTracks.size(); i++) {
+            final int index = i;
+            AudioTrack track = currentTracks.get(i);
+
+            String title = track.title == null ? "" : track.title;
+            String artist = track.artist == null ? "" : track.artist;
+
+            if (!title.toLowerCase(Locale.ROOT).contains(q) &&
+                !artist.toLowerCase(Locale.ROOT).contains(q)) {
+                continue;
+            }
+
+            TextView item = makeText(
+                title + "\\n" + artist + "  •  " +
+                formatDuration(track.duration), 15, white);
+
+            item.setPadding(12, 15, 12, 15);
+            item.setOnClickListener(v -> playTrack(index));
+            trackList.addView(item);
+
+            View line = new View(this);
+            line.setBackgroundColor(0xFF292936);
+            trackList.addView(line,
+                new LinearLayout.LayoutParams(-1, 1));
+
+            shown++;
+        }
+
+        status.setText(shown + " songs found");
+
+        if (shown == 0) {
+            TextView empty = makeText(
+                q.isEmpty() ? "No music found." : "No matching songs found.",
+                15, gray);
+            empty.setPadding(0, 20, 0, 20);
+            trackList.addView(empty);
+        }
     }
 
     void playTrack(int index) {
