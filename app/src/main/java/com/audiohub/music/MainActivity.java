@@ -12,6 +12,7 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.graphics.BitmapFactory;
 import android.media.MediaMetadataRetriever;
+import android.media.MediaPlayer;
 import android.graphics.Bitmap;
 import android.widget.ImageView;
 import android.graphics.drawable.BitmapDrawable;
@@ -45,6 +46,9 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class MainActivity extends Activity {
+    private MediaPlayer discoverPlayer;
+    private Button activePreviewButton;
+    private boolean discoverPreviewPrepared = false;
 
     private static final int AUDIO_PERMISSION_REQUEST = 100;
     private static final int MIC_PERMISSION_REQUEST = 102;
@@ -2360,7 +2364,7 @@ public class MainActivity extends Activity {
                         actions.setGravity(Gravity.CENTER_VERTICAL);
                         card.addView(actions);
 
-                        Button preview = makeButton("PREVIEW");
+                        Button preview = makeButton("PLAY");
                         preview.setTextSize(10);
                         preview.setEnabled(!previewUrl.isEmpty());
                         actions.addView(preview,
@@ -2374,16 +2378,82 @@ public class MainActivity extends Activity {
                         actions.addView(open, openParams);
 
                         preview.setOnClickListener(v -> {
-                            if (!previewUrl.isEmpty()) {
+                            if (previewUrl.isEmpty()) return;
+
+                            if (activePreviewButton == preview
+                                    && discoverPlayer != null) {
                                 try {
-                                    startActivity(new android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse(previewUrl)
-                                    ));
-                                } catch (Exception e) {
-                                    Toast.makeText(this, "Cannot open preview",
-                                        Toast.LENGTH_SHORT).show();
+                                    if (discoverPlayer.isPlaying()) {
+                                        discoverPlayer.pause();
+                                        preview.setText("PLAY");
+                                    } else if (discoverPreviewPrepared) {
+                                        discoverPlayer.start();
+                                        preview.setText("PAUSE");
+                                    }
+                                } catch (IllegalStateException ignored) {
+                                    preview.setText("PLAY");
                                 }
+                                return;
+                            }
+
+                            if (discoverPlayer != null) {
+                                try {
+                                    discoverPlayer.release();
+                                } catch (Exception ignored) {}
+                                discoverPlayer = null;
+                            }
+
+                            if (activePreviewButton != null) {
+                                activePreviewButton.setText("PLAY");
+                            }
+
+                            activePreviewButton = preview;
+                            discoverPreviewPrepared = false;
+                            preview.setText("LOADING");
+
+                            try {
+                                discoverPlayer = new MediaPlayer();
+                                discoverPlayer.setAudioStreamType(
+                                    android.media.AudioManager.STREAM_MUSIC
+                                );
+                                discoverPlayer.setDataSource(previewUrl);
+
+                                discoverPlayer.setOnPreparedListener(mp -> {
+                                    discoverPreviewPrepared = true;
+                                    mp.start();
+                                    preview.setText("PAUSE");
+                                });
+
+                                discoverPlayer.setOnCompletionListener(mp -> {
+                                    preview.setText("PLAY");
+                                    discoverPreviewPrepared = false;
+                                    discoverPlayer = null;
+                                    activePreviewButton = null;
+                                    mp.release();
+                                });
+
+                                discoverPlayer.setOnErrorListener((mp, what, extra) -> {
+                                    preview.setText("PLAY");
+                                    discoverPreviewPrepared = false;
+                                    activePreviewButton = null;
+                                    discoverPlayer = null;
+                                    mp.release();
+                                    Toast.makeText(this, "Preview playback failed",
+                                        Toast.LENGTH_SHORT).show();
+                                    return true;
+                                });
+
+                                discoverPlayer.prepareAsync();
+                            } catch (Exception e) {
+                                preview.setText("PLAY");
+                                discoverPreviewPrepared = false;
+                                activePreviewButton = null;
+                                if (discoverPlayer != null) {
+                                    discoverPlayer.release();
+                                    discoverPlayer = null;
+                                }
+                                Toast.makeText(this, "Cannot play preview",
+                                    Toast.LENGTH_SHORT).show();
                             }
                         });
 
@@ -2507,6 +2577,11 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (discoverPlayer != null) {
+            discoverPlayer.release();
+            discoverPlayer = null;
+            activePreviewButton = null;
+        }
         if (receiverRegistered) {
             unregisterReceiver(playbackReceiver);
             receiverRegistered = false;
