@@ -395,8 +395,8 @@ public class MainActivity extends Activity {
         LinearLayout navigation = makeRow();
         navigation.setGravity(Gravity.CENTER_VERTICAL);
 
-        String[] pages = {"Home", "Library", "Playlists", "AI DJ", "Themes"};
-        String[] icons = {"⌂", "♫", "▤", "✦", "◐"};
+        String[] pages = {"Home", "Library", "Playlists", "AI DJ", "Assistant", "Themes"};
+        String[] icons = {"⌂", "♫", "▤", "✦", "🤖", "◐"};
 
         for (int i = 0; i < pages.length; i++) {
             final String page = pages[i];
@@ -484,6 +484,8 @@ public class MainActivity extends Activity {
             showPlaylists();
         } else if (page.equals("AI DJ")) {
             showDj();
+        } else if (page.equals("Assistant")) {
+            showAssistant();
         } else if (page.equals("Themes")) {
             showThemes();
         } else {
@@ -1322,20 +1324,24 @@ public class MainActivity extends Activity {
         }
 
         if (spoken.equals("play") || spoken.equals("resume") ||
-                spoken.equals("endelea") || spoken.equals("cheza")) {
+                spoken.equals("endelea") || spoken.equals("cheza") ||
+                spoken.equals("play music") || spoken.equals("cheza muziki") ||
+                spoken.equals("fungua muziki")) {
             sendAction(PlaybackService.ACTION_RESUME);
             Toast.makeText(this, "Playing", Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (spoken.contains("next") || spoken.contains("skip") ||
-                spoken.contains("inayofuata")) {
+                spoken.contains("inayofuata") ||
+                spoken.contains("wimbo mwingine")) {
             sendAction(PlaybackService.ACTION_NEXT);
             return;
         }
 
         if (spoken.contains("previous") || spoken.contains("back") ||
-                spoken.contains("iliyopita")) {
+                spoken.contains("iliyopita") ||
+                spoken.contains("wimbo uliopita")) {
             sendAction(PlaybackService.ACTION_PREVIOUS);
             return;
         }
@@ -1736,6 +1742,119 @@ public class MainActivity extends Activity {
                 "No songs here yet. Add music from your Library.",
                 14, gray));
         }
+    }
+
+    void showAssistant() {
+        TextView heading = makeText("JARVIS AI", 25, white);
+        heading.setTypeface(null, android.graphics.Typeface.BOLD);
+        heading.setPadding(0, dp(12), 0, dp(5));
+        content.addView(heading);
+
+        content.addView(makeText(
+                "Your Audio Hub music assistant. English + Swahili.",
+                12, gray));
+
+        addPlayerControls();
+
+        LinearLayout chatLog = new LinearLayout(this);
+        chatLog.setOrientation(LinearLayout.VERTICAL);
+        chatLog.setPadding(dp(8), dp(8), dp(8), dp(8));
+
+        ScrollView chatScroll = new ScrollView(this);
+        chatScroll.setFillViewport(true);
+        chatScroll.setBackground(roundedCard(0xFF171421, 0x554A3A62));
+        chatScroll.addView(chatLog);
+        content.addView(chatScroll,
+                new LinearLayout.LayoutParams(-1, dp(260)));
+
+        TextView welcome = makeText(
+                "Hello! I'm JARVIS. Ask me to play, pause, skip, search songs, shuffle or repeat.\n\nHabari! Niambie unataka kusikiliza wimbo gani.",
+                14, white);
+        welcome.setPadding(dp(12), dp(12), dp(12), dp(12));
+        welcome.setBackground(roundedCard(0xFF211D30, 0x554A3A62));
+        chatLog.addView(welcome);
+
+        LinearLayout inputRow = makeRow();
+        EditText message = new EditText(this);
+        message.setSingleLine(true);
+        message.setHint("Ask JARVIS...");
+        message.setTextColor(white);
+        message.setHintTextColor(gray);
+        message.setBackground(roundedCard(0xFF211D30, 0x554A3A62));
+        inputRow.addView(message,
+                new LinearLayout.LayoutParams(0, dp(52), 1));
+
+        Button send = makeButton("SEND");
+        inputRow.addView(send,
+                new LinearLayout.LayoutParams(dp(85), dp(52)));
+
+        send.setOnClickListener(v -> {
+            String command = message.getText().toString().trim();
+            if (command.isEmpty()) return;
+            message.setText("");
+
+            TextView userBubble = makeText(
+                    "YOU: " + command, 14, white);
+            userBubble.setPadding(dp(12), dp(10), dp(12), dp(10));
+            userBubble.setBackground(
+                    roundedCard(0xFF34304A, 0x554A3A62));
+            LinearLayout.LayoutParams userParams =
+                    new LinearLayout.LayoutParams(-1, -2);
+            userParams.setMargins(dp(18), dp(6), 0, dp(6));
+            chatLog.addView(userBubble, userParams);
+
+            handleVoiceCommand(command);
+
+            String spoken = command.toLowerCase(Locale.ROOT);
+            String reply;
+
+            if (spoken.contains("pause") || spoken.contains("stop") ||
+                    spoken.contains("simama") || spoken.contains("simamisha") ||
+                    spoken.contains("sitisha")) {
+                reply = "Sawa! Nimesitisha muziki. ⏸";
+            } else if (spoken.equals("play") || spoken.equals("resume") ||
+                    spoken.equals("endelea") || spoken.equals("cheza") ||
+                    spoken.equals("play music") ||
+                    spoken.equals("cheza muziki")) {
+                reply = "Sawa! Tuendelee kusikiliza. ▶";
+            } else if (spoken.contains("next") || spoken.contains("skip") ||
+                    spoken.contains("inayofuata") ||
+                    spoken.contains("wimbo mwingine")) {
+                reply = "Sawa! Wimbo unaofuata. ⏭";
+            } else if (spoken.contains("previous") || spoken.contains("back") ||
+                    spoken.contains("iliyopita")) {
+                reply = "Tunarudi kwenye wimbo uliopita. ⏮";
+            } else if (spoken.contains("shuffle") ||
+                    spoken.contains("changanya")) {
+                reply = "Nimebadilisha hali ya Shuffle.";
+            } else if (spoken.contains("repeat") ||
+                    spoken.contains("rudia")) {
+                reply = "Nimebadilisha hali ya Repeat.";
+            } else {
+                reply = "Nimepokea ujumbe wako. Jaribu amri ya kucheza, kusitisha, kuruka wimbo au kutafuta jina la wimbo.";
+            }
+
+            TextView botBubble = makeText(
+                    "JARVIS: " + reply, 14, white);
+            botBubble.setPadding(dp(12), dp(10), dp(12), dp(10));
+            botBubble.setBackground(
+                    roundedCard(0xFF211D30, 0x554A3A62));
+            LinearLayout.LayoutParams botParams =
+                    new LinearLayout.LayoutParams(-1, -2);
+            botParams.setMargins(0, dp(6), dp(18), dp(6));
+            chatLog.addView(botBubble, botParams);
+
+            chatScroll.post(() ->
+                    chatScroll.fullScroll(View.FOCUS_DOWN));
+        });
+
+        content.addView(inputRow);
+
+        TextView offline = makeText(
+                "OFFLINE MODE • Local music assistant",
+                10, purple);
+        offline.setPadding(0, dp(12), 0, 0);
+        content.addView(offline);
     }
 
     void showDj() {
