@@ -307,44 +307,116 @@ public class MainActivity extends Activity {
 
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(20, 25, 20, 12);
+        root.setPadding(dp(16), dp(10), dp(16), dp(8));
         applyThemeBackground();
 
-        TextView title = makeText("AUDIO HUB", 27, white);
-        title.setGravity(Gravity.CENTER);
-        title.setTypeface(null, 1);
-        root.addView(title);
+        // Premium compact brand header
+        LinearLayout header = makeRow();
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(3), dp(5), dp(3), dp(12));
 
-        TextView subtitle = makeText("YOUR MUSIC. YOUR WORLD.", 11, purple);
-        subtitle.setGravity(Gravity.CENTER);
-        root.addView(subtitle);
+        LinearLayout brand = new LinearLayout(this);
+        brand.setOrientation(LinearLayout.VERTICAL);
+
+        TextView brandName = makeText("AUDIO HUB", 19, white);
+        brandName.setTypeface(null, android.graphics.Typeface.BOLD);
+
+        TextView brandCaption = makeText("MUSIC WITHOUT LIMITS", 9, purple);
+        brandCaption.setTypeface(null, android.graphics.Typeface.BOLD);
+        brandCaption.setPadding(0, dp(2), 0, 0);
+
+        brand.addView(brandName);
+        brand.addView(brandCaption);
+        header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView searchAction = makeText("⌕", 27, white);
+        searchAction.setGravity(Gravity.CENTER);
+        searchAction.setBackground(roundedCard(0xFF171722, 0x554A3A62));
+        header.addView(searchAction,
+                new LinearLayout.LayoutParams(dp(43), dp(43)));
+        searchAction.setOnClickListener(v -> showPage("Library"));
+
+        root.addView(header);
 
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
 
+        // Premium bottom navigation
+        LinearLayout navigationBar = new LinearLayout(this);
+        navigationBar.setOrientation(LinearLayout.VERTICAL);
+        navigationBar.setPadding(dp(5), dp(8), dp(5), dp(3));
+        navigationBar.setBackground(
+                roundedCard(0xFF151320, 0x554A3A62));
+
         LinearLayout navigation = makeRow();
-        navigation.setPadding(0, dp(7), 0, dp(3));
+        navigation.setGravity(Gravity.CENTER_VERTICAL);
+
         String[] pages = {"Home", "Library", "Playlists", "AI DJ", "Themes"};
         String[] icons = {"⌂", "♫", "▤", "✦", "◐"};
 
         for (int i = 0; i < pages.length; i++) {
             final String page = pages[i];
-            TextView button = makeText(icons[i] + "\n" + page, 10,
-                page.equals("Home") ? purple : gray);
-            button.setGravity(Gravity.CENTER);
-            button.setTypeface(null, android.graphics.Typeface.BOLD);
-            button.setPadding(dp(3), dp(8), dp(3), dp(8));
-            button.setBackground(roundedCard(
-                page.equals("Home") ? 0x332A1740 : 0x00171722,
-                page.equals("Home") ? 0x885B3B79 : 0x00333333));
-            button.setOnClickListener(v -> showPage(page));
-            navigation.addView(button,
-                new LinearLayout.LayoutParams(0, -2, 1));
-        }
-        root.addView(navigation);
-        setContentView(root);
+            final int position = i;
 
+            LinearLayout navItem = new LinearLayout(this);
+            navItem.setOrientation(LinearLayout.VERTICAL);
+            navItem.setGravity(Gravity.CENTER);
+            navItem.setPadding(dp(2), dp(5), dp(2), dp(5));
+
+            boolean active = page.equals("Home");
+
+            TextView icon = makeText(
+                    icons[i], 21, active ? purple : gray);
+            icon.setGravity(Gravity.CENTER);
+
+            TextView label = makeText(
+                    page.toUpperCase(Locale.ROOT), 8,
+                    active ? white : gray);
+            label.setGravity(Gravity.CENTER);
+            label.setTypeface(null, android.graphics.Typeface.BOLD);
+            label.setPadding(0, dp(3), 0, 0);
+
+            View indicator = new View(this);
+            indicator.setBackgroundColor(active ? purple : 0x00171722);
+
+            navItem.addView(icon);
+            navItem.addView(label);
+
+            LinearLayout.LayoutParams indicatorParams =
+                    new LinearLayout.LayoutParams(dp(17), dp(2));
+            indicatorParams.setMargins(0, dp(5), 0, 0);
+            navItem.addView(indicator, indicatorParams);
+
+            navItem.setOnClickListener(v -> {
+                showPage(page);
+
+                for (int j = 0; j < navigation.getChildCount(); j++) {
+                    LinearLayout child =
+                            (LinearLayout) navigation.getChildAt(j);
+                    boolean selected = j == position;
+
+                    ((TextView) child.getChildAt(0)).setTextColor(
+                            selected ? purple : gray);
+                    ((TextView) child.getChildAt(1)).setTextColor(
+                            selected ? white : gray);
+                    child.getChildAt(2).setBackgroundColor(
+                            selected ? purple : 0x00171722);
+                }
+            });
+
+            navigation.addView(navItem,
+                    new LinearLayout.LayoutParams(0, -2, 1));
+        }
+
+        navigationBar.addView(navigation);
+
+        LinearLayout.LayoutParams navParams =
+                new LinearLayout.LayoutParams(-1, -2);
+        navParams.setMargins(0, dp(8), 0, 0);
+        root.addView(navigationBar, navParams);
+
+        setContentView(root);
         showPage("Home");
     }
 
