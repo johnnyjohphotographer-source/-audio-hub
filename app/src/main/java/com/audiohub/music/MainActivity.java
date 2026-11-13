@@ -946,42 +946,77 @@ public class MainActivity extends Activity {
         if (trackList == null) return;
         trackList.removeAllViews();
 
-        String q = query == null
-            ? "" : query.trim().toLowerCase(Locale.ROOT);
+        String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
         int shown = 0;
 
         for (int i = 0; i < currentTracks.size(); i++) {
             final int index = i;
             AudioTrack track = currentTracks.get(i);
 
-            String title = track.title == null
-                ? "Unknown title" : track.title;
-            String artist = track.artist == null
-                ? "Unknown artist" : track.artist;
+            String title = track.title == null ? "Unknown title" : track.title;
+            String artist = track.artist == null ? "Unknown artist" : track.artist;
 
             if (!title.toLowerCase(Locale.ROOT).contains(q)
                     && !artist.toLowerCase(Locale.ROOT).contains(q)) {
                 continue;
             }
 
-            TextView item = makeText(
-                String.format(Locale.getDefault(), "%02d", shown + 1)
-                    + "   ♫  " + title + "\n"
-                    + artist + "   •   " + formatDuration(track.duration),
-                13, white);
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.HORIZONTAL);
+            card.setGravity(Gravity.CENTER_VERTICAL);
+            card.setPadding(dp(12), dp(11), dp(12), dp(11));
+            card.setBackground(roundedCard(0xFF171722, 0x554A3A62));
 
-            item.setPadding(dp(15), dp(15), dp(12), dp(15));
-            item.setBackground(roundedCard(0xFF171722, 0x554A3A62));
+            LinearLayout.LayoutParams cardParams =
+                    new LinearLayout.LayoutParams(-1, -2);
+            cardParams.setMargins(0, dp(5), 0, dp(5));
 
-            LinearLayout.LayoutParams itemParams =
-                new LinearLayout.LayoutParams(-1, -2);
-            itemParams.setMargins(0, dp(4), 0, dp(4));
-            trackList.addView(item, itemParams);
+            TextView artwork = makeText("♫", 25, purple);
+            artwork.setGravity(Gravity.CENTER);
+            artwork.setTypeface(null, android.graphics.Typeface.BOLD);
+            artwork.setBackground(roundedCard(0xFF29213B, 0x665B3B79));
+            card.addView(artwork, new LinearLayout.LayoutParams(dp(54), dp(54)));
 
-            item.setOnClickListener(v ->
-                playQueue(currentTracks, index));
+            LinearLayout details = new LinearLayout(this);
+            details.setOrientation(LinearLayout.VERTICAL);
+            details.setGravity(Gravity.CENTER_VERTICAL);
+            details.setPadding(dp(13), 0, dp(5), 0);
 
-            item.setOnLongClickListener(v -> {
+            TextView name = makeText(title, 14, white);
+            name.setTypeface(null, android.graphics.Typeface.BOLD);
+            name.setMaxLines(1);
+            name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+
+            TextView artistName = makeText(artist, 11, gray);
+            artistName.setMaxLines(1);
+            artistName.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            artistName.setPadding(0, dp(4), 0, 0);
+
+            details.addView(name);
+            details.addView(artistName);
+
+            card.addView(details,
+                    new LinearLayout.LayoutParams(0, -2, 1));
+
+            LinearLayout right = new LinearLayout(this);
+            right.setOrientation(LinearLayout.VERTICAL);
+            right.setGravity(Gravity.CENTER);
+
+            TextView duration = makeText(formatDuration(track.duration), 10, gray);
+            TextView play = makeText("▶", 15, purple);
+            play.setGravity(Gravity.CENTER);
+            play.setPadding(0, dp(7), 0, 0);
+
+            right.addView(duration);
+            right.addView(play);
+
+            card.addView(right,
+                    new LinearLayout.LayoutParams(dp(43), -2));
+
+            trackList.addView(card, cardParams);
+
+            card.setOnClickListener(v -> playQueue(currentTracks, index));
+            card.setOnLongClickListener(v -> {
                 addTrackToPlaylist(track);
                 return true;
             });
@@ -990,15 +1025,15 @@ public class MainActivity extends Activity {
         }
 
         if (status != null) {
-            status.setText(shown + " songs shown  •  Long-press to add");
+            status.setText(shown + " songs  •  Tap to play  •  Hold for playlist");
         }
 
         if (shown == 0) {
             TextView empty = makeText(
-                q.isEmpty()
-                    ? "No music loaded. Scan your phone to begin."
-                    : "No matching songs found.",
-                14, gray);
+                    q.isEmpty()
+                            ? "No music loaded. Scan your phone to begin."
+                            : "No matching songs found.",
+                    14, gray);
             empty.setPadding(dp(10), dp(22), dp(10), dp(22));
             trackList.addView(empty);
         }
