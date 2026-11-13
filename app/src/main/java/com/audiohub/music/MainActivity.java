@@ -26,6 +26,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -49,6 +50,10 @@ public class MainActivity extends Activity {
     TextView status, nowPlaying, playerArtist;
     Button playPauseButton, previousButton, nextButton;
     EditText searchInput;
+    SeekBar playerSeekBar;
+    TextView elapsedTimeText, durationTimeText;
+    boolean userSeeking = false;
+    LinearLayout appHeader, navigationBar;
 
     List<AudioTrack> currentTracks = new ArrayList<>();
     PlaylistStore playlistStore;
@@ -61,6 +66,7 @@ public class MainActivity extends Activity {
     boolean receiverRegistered = false;
 
     String currentPage = "Home";
+    String previousPageForPlayer = "Home";
 
     final BroadcastReceiver playbackReceiver = new BroadcastReceiver() {
         @Override
@@ -72,6 +78,20 @@ public class MainActivity extends Activity {
 
             String title = intent.getStringExtra("title");
             String artist = intent.getStringExtra("artist");
+
+            int position = intent.getIntExtra("position", 0);
+            int duration = intent.getIntExtra("duration", 0);
+
+            if (playerSeekBar != null && duration > 0) {
+                playerSeekBar.setMax(duration);
+                if (!userSeeking) playerSeekBar.setProgress(position);
+            }
+            if (elapsedTimeText != null) {
+                elapsedTimeText.setText(formatTime(position));
+            }
+            if (durationTimeText != null) {
+                durationTimeText.setText(formatTime(duration));
+            }
 
             if (nowPlaying != null) {
                 nowPlaying.setText(
@@ -96,6 +116,13 @@ public class MainActivity extends Activity {
             }
         }
     };
+
+    String formatTime(int milliseconds) {
+        int totalSeconds = Math.max(0, milliseconds / 1000);
+        int minutes = totalSeconds / 60;
+        int seconds = totalSeconds % 60;
+        return String.format(java.util.Locale.getDefault(), "%02d:%02d", minutes, seconds);
+    }
 
     void applyThemeBackground() {
         String photo = themeManager.getPhoto();
@@ -311,7 +338,8 @@ public class MainActivity extends Activity {
         applyThemeBackground();
 
         // Premium compact brand header
-        LinearLayout header = makeRow();
+        appHeader = makeRow();
+        LinearLayout header = appHeader;
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setPadding(dp(3), dp(5), dp(3), dp(12));
 
@@ -343,7 +371,7 @@ public class MainActivity extends Activity {
         root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
 
         // Premium bottom navigation
-        LinearLayout navigationBar = new LinearLayout(this);
+        navigationBar = new LinearLayout(this);
         navigationBar.setOrientation(LinearLayout.VERTICAL);
         navigationBar.setPadding(dp(5), dp(8), dp(5), dp(3));
         navigationBar.setBackground(
@@ -422,9 +450,20 @@ public class MainActivity extends Activity {
 
     void showPage(String page) {
         currentPage = page;
+
+        boolean immersive = page.equals("Now Playing");
+        if (appHeader != null) {
+            appHeader.setVisibility(immersive ? View.GONE : View.VISIBLE);
+        }
+        if (navigationBar != null) {
+            navigationBar.setVisibility(immersive ? View.GONE : View.VISIBLE);
+        }
+
         content.removeAllViews();
 
-        if (page.equals("Library")) {
+        if (page.equals("Now Playing")) {
+            showNowPlaying();
+        } else if (page.equals("Library")) {
             showLibrary();
         } else if (page.equals("Playlists")) {
             showPlaylists();
@@ -439,6 +478,17 @@ public class MainActivity extends Activity {
         styleScreen();
     }
 
+
+    void openNowPlaying() {
+        if (!"Now Playing".equals(currentPage)) {
+            previousPageForPlayer = currentPage;
+        }
+        showPage("Now Playing");
+    }
+
+    void closeNowPlaying() {
+        showPage(previousPageForPlayer == null ? "Home" : previousPageForPlayer);
+    }
 
     void showThemes() {
         ScrollView scroll = new ScrollView(this);
@@ -561,128 +611,214 @@ public class MainActivity extends Activity {
 
     void addPlayerControls() {
         LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(16), dp(16), dp(16), dp(16));
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(dp(12), dp(10), dp(12), dp(10));
         card.setBackground(roundedCard(0xFF151320, 0x995B3B79));
-        card.setElevation(dp(5));
+        card.setElevation(dp(4));
 
-        TextView label = makeText(
-            "♫   NOW PLAYING", 11, purple
-        );
-        label.setTypeface(null, android.graphics.Typeface.BOLD);
-        card.addView(label);
-
-        LinearLayout hero = makeRow();
-        hero.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        hero.setPadding(0, dp(15), 0, dp(15));
-
-        TextView artwork = makeText("♫", 42, 0xFFFFFFFF);
-        artwork.setGravity(android.view.Gravity.CENTER);
-        artwork.setBackground(roundedCard(
-            0xFF39205F, 0xFFB56CFF
-        ));
-
-        LinearLayout.LayoutParams artParams =
-            new LinearLayout.LayoutParams(dp(92), dp(92));
-        artParams.setMargins(0, 0, dp(15), 0);
-        hero.addView(artwork, artParams);
+        TextView artwork = makeText("♫", 27, white);
+        artwork.setGravity(Gravity.CENTER);
+        artwork.setBackground(roundedCard(0xFF39205F, 0xFFB56CFF));
+        card.addView(artwork, new LinearLayout.LayoutParams(dp(50), dp(50)));
 
         LinearLayout details = new LinearLayout(this);
         details.setOrientation(LinearLayout.VERTICAL);
-        details.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        details.setPadding(dp(12), 0, dp(8), 0);
 
-        nowPlaying = makeText(
-            currentIndex >= 0 && currentIndex < currentTracks.size()
-                ? currentTracks.get(currentIndex).title
-                : "Choose a song",
-            17, white
-        );
+        String title = currentIndex >= 0 && currentIndex < currentTracks.size()
+                ? currentTracks.get(currentIndex).title : "Choose a song";
+        String artist = currentIndex >= 0 && currentIndex < currentTracks.size()
+                ? currentTracks.get(currentIndex).artist : "AUDIO HUB";
+
+        nowPlaying = makeText(title, 14, white);
         nowPlaying.setTypeface(null, android.graphics.Typeface.BOLD);
-        nowPlaying.setMaxLines(2);
+        nowPlaying.setMaxLines(1);
+        nowPlaying.setEllipsize(android.text.TextUtils.TruncateAt.END);
         details.addView(nowPlaying);
 
-        playerArtist = makeText(
-            "AUDIO HUB  •  SIGNATURE PLAYER", 11, gray
-        );
-        playerArtist.setPadding(0, dp(6), 0, 0);
+        playerArtist = makeText(artist, 11, gray);
         playerArtist.setMaxLines(1);
+        playerArtist.setEllipsize(android.text.TextUtils.TruncateAt.END);
         details.addView(playerArtist);
 
-        hero.addView(details,
-            new LinearLayout.LayoutParams(0, -2, 1));
-        card.addView(hero);
+        card.addView(details, new LinearLayout.LayoutParams(0, -2, 1));
+
+        playPauseButton = makeButton(isPlaying ? "Ⅱ" : "▶");
+        playPauseButton.setTextSize(17);
+        card.addView(playPauseButton,
+                new LinearLayout.LayoutParams(dp(52), dp(48)));
+
+        playPauseButton.setOnClickListener(v ->
+                sendAction(isPlaying
+                        ? PlaybackService.ACTION_PAUSE
+                        : PlaybackService.ACTION_RESUME));
+
+        card.setOnClickListener(v -> openNowPlaying());
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(0, dp(12), 0, dp(14));
+        content.addView(card, params);
+    }
+
+    void showNowPlaying() {
+        LinearLayout player = new LinearLayout(this);
+        player.setOrientation(LinearLayout.VERTICAL);
+        player.setGravity(Gravity.CENTER_HORIZONTAL);
+        player.setPadding(dp(8), dp(8), dp(8), dp(18));
+
+        LinearLayout topBar = makeRow();
+        topBar.setGravity(Gravity.CENTER_VERTICAL);
+
+        Button backButton = makeButton("‹");
+        backButton.setTextSize(27);
+        topBar.addView(backButton,
+                new LinearLayout.LayoutParams(dp(52), dp(48)));
+        backButton.setOnClickListener(v -> closeNowPlaying());
+
+        TextView heading = makeText("NOW PLAYING", 12, gray);
+        heading.setGravity(Gravity.CENTER);
+        heading.setTypeface(null, android.graphics.Typeface.BOLD);
+        topBar.addView(heading,
+                new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView queueLabel = makeText("♫", 22, purple);
+        queueLabel.setGravity(Gravity.CENTER);
+        topBar.addView(queueLabel,
+                new LinearLayout.LayoutParams(dp(52), dp(48)));
+        player.addView(topBar);
+
+        TextView artwork = makeText("♫", 100, white);
+        artwork.setGravity(Gravity.CENTER);
+        artwork.setBackground(roundedCard(0xFF251638, 0xFF9B5DE5));
+        artwork.setElevation(dp(10));
+
+        LinearLayout.LayoutParams artParams =
+                new LinearLayout.LayoutParams(dp(250), dp(250));
+        artParams.setMargins(0, dp(28), 0, dp(28));
+        player.addView(artwork, artParams);
+
+        String title = currentIndex >= 0 && currentIndex < currentTracks.size()
+                ? currentTracks.get(currentIndex).title : "Choose a song";
+        String artist = currentIndex >= 0 && currentIndex < currentTracks.size()
+                ? currentTracks.get(currentIndex).artist : "AUDIO HUB";
+
+        nowPlaying = makeText(title, 23, white);
+        nowPlaying.setTypeface(null, android.graphics.Typeface.BOLD);
+        nowPlaying.setGravity(Gravity.CENTER);
+        nowPlaying.setMaxLines(2);
+        player.addView(nowPlaying);
+
+        playerArtist = makeText(artist, 14, gray);
+        playerArtist.setGravity(Gravity.CENTER);
+        playerArtist.setPadding(0, dp(7), 0, dp(22));
+        player.addView(playerArtist);
+
+        playerSeekBar = new SeekBar(this);
+        playerSeekBar.setMax(1);
+        playerSeekBar.setProgress(0);
+        player.addView(playerSeekBar,
+                new LinearLayout.LayoutParams(-1, dp(35)));
+
+        LinearLayout timeRow = makeRow();
+        timeRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        elapsedTimeText = makeText("00:00", 11, gray);
+        durationTimeText = makeText("00:00", 11, gray);
+
+        timeRow.addView(elapsedTimeText,
+                new LinearLayout.LayoutParams(0, -2, 1));
+        durationTimeText.setGravity(Gravity.RIGHT);
+        timeRow.addView(durationTimeText,
+                new LinearLayout.LayoutParams(0, -2, 1));
+        player.addView(timeRow);
+
+        playerSeekBar.setOnSeekBarChangeListener(
+                new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar bar, int progress,
+                                          boolean fromUser) {
+                if (fromUser && elapsedTimeText != null) {
+                    elapsedTimeText.setText(formatTime(progress));
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar bar) {
+                userSeeking = true;
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar bar) {
+                userSeeking = false;
+                Intent seekIntent = new Intent(MainActivity.this,
+                        PlaybackService.class);
+                seekIntent.setAction(PlaybackService.ACTION_SEEK);
+                seekIntent.putExtra("position", bar.getProgress());
+                startService(seekIntent);
+            }
+        });
 
         LinearLayout transport = makeRow();
-        transport.setGravity(android.view.Gravity.CENTER);
-        transport.setPadding(0, dp(5), 0, dp(8));
+        transport.setGravity(Gravity.CENTER);
+        transport.setPadding(0, dp(18), 0, dp(12));
 
         previousButton = makeButton("⏮");
-        playPauseButton = makeButton(
-            isPlaying ? "Ⅱ  PAUSE" : "▶  PLAY"
-        );
+        playPauseButton = makeButton(isPlaying ? "Ⅱ" : "▶");
         nextButton = makeButton("⏭");
 
-        previousButton.setTextSize(17);
-        nextButton.setTextSize(17);
-        playPauseButton.setTextSize(13);
+        previousButton.setTextSize(20);
+        playPauseButton.setTextSize(23);
+        nextButton.setTextSize(20);
 
         transport.addView(previousButton,
-            new LinearLayout.LayoutParams(0, dp(50), 1));
+                new LinearLayout.LayoutParams(0, dp(58), 1));
         transport.addView(playPauseButton,
-            new LinearLayout.LayoutParams(0, dp(50), 1.6f));
+                new LinearLayout.LayoutParams(0, dp(58), 1.5f));
         transport.addView(nextButton,
-            new LinearLayout.LayoutParams(0, dp(50), 1));
+                new LinearLayout.LayoutParams(0, dp(58), 1));
 
-        card.addView(transport);
+        player.addView(transport);
 
         previousButton.setOnClickListener(v ->
-            sendAction(PlaybackService.ACTION_PREVIOUS));
+                sendAction(PlaybackService.ACTION_PREVIOUS));
         nextButton.setOnClickListener(v ->
-            sendAction(PlaybackService.ACTION_NEXT));
+                sendAction(PlaybackService.ACTION_NEXT));
         playPauseButton.setOnClickListener(v ->
-            sendAction(isPlaying
-                ? PlaybackService.ACTION_PAUSE
-                : PlaybackService.ACTION_RESUME));
+                sendAction(isPlaying
+                        ? PlaybackService.ACTION_PAUSE
+                        : PlaybackService.ACTION_RESUME));
 
         LinearLayout extras = makeRow();
         Button micButton = makeButton("MIC");
-        Button shuffleButton = makeButton(
-            shuffle ? "SHUFFLE ON" : "SHUFFLE"
-        );
-        Button repeatButton = makeButton(
-            repeat ? "REPEAT ON" : "REPEAT"
-        );
+        Button shuffleButton = makeButton(shuffle ? "SHUFFLE ON" : "SHUFFLE");
+        Button repeatButton = makeButton(repeat ? "REPEAT ON" : "REPEAT");
 
         extras.addView(micButton,
-            new LinearLayout.LayoutParams(0, -2, 1));
+                new LinearLayout.LayoutParams(0, -2, 1));
         extras.addView(shuffleButton,
-            new LinearLayout.LayoutParams(0, -2, 1));
+                new LinearLayout.LayoutParams(0, -2, 1));
         extras.addView(repeatButton,
-            new LinearLayout.LayoutParams(0, -2, 1));
-        card.addView(extras);
+                new LinearLayout.LayoutParams(0, -2, 1));
+        player.addView(extras);
 
         micButton.setOnClickListener(v -> startVoiceCommand());
 
         shuffleButton.setOnClickListener(v -> {
             shuffle = !shuffle;
             updateModes();
-            shuffleButton.setText(
-                shuffle ? "SHUFFLE ON" : "SHUFFLE"
-            );
+            shuffleButton.setText(shuffle ? "SHUFFLE ON" : "SHUFFLE");
         });
 
         repeatButton.setOnClickListener(v -> {
             repeat = !repeat;
             updateModes();
-            repeatButton.setText(
-                repeat ? "REPEAT ON" : "REPEAT"
-            );
+            repeatButton.setText(repeat ? "REPEAT ON" : "REPEAT");
         });
 
-        LinearLayout.LayoutParams params =
-            new LinearLayout.LayoutParams(-1, -2);
-        params.setMargins(0, dp(12), 0, dp(14));
-        content.addView(card, params);
+        content.addView(player,
+                new LinearLayout.LayoutParams(-1, -1));
     }
 
     void showHome() {
@@ -1580,6 +1716,15 @@ public class MainActivity extends Activity {
         long seconds = milliseconds / 1000;
         return String.format(Locale.getDefault(),
             "%d:%02d", seconds / 60, seconds % 60);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if ("Now Playing".equals(currentPage)) {
+            closeNowPlaying();
+        } else {
+            super.onBackPressed();
+        }
     }
 
     @Override

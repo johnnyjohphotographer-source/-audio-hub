@@ -10,6 +10,8 @@ import android.media.MediaPlayer;
 import android.media.session.MediaSession;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.IBinder;
 
 import java.util.ArrayList;
@@ -24,6 +26,7 @@ public class PlaybackService extends Service {
     public static final String ACTION_STOP = "audiohub.STOP";
     public static final String ACTION_MODES = "audiohub.MODES";
     public static final String ACTION_UPDATE = "audiohub.UPDATE";
+    public static final String ACTION_SEEK = "audiohub.SEEK";
 
     public static final String EXTRA_URIS = "uris";
     public static final String EXTRA_TITLES = "titles";
@@ -42,6 +45,17 @@ public class PlaybackService extends Service {
     private boolean prepared = false;
     private boolean shuffle = false;
     private boolean repeat = false;
+
+    private final Handler progressHandler = new Handler(Looper.getMainLooper());
+    private final Runnable progressRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (player != null && prepared && player.isPlaying()) {
+                broadcastUpdate();
+                progressHandler.postDelayed(this, 1000);
+            }
+        }
+    };
 
     @Override
     public void onCreate() {
@@ -82,6 +96,12 @@ public class PlaybackService extends Service {
             next();
         } else if (ACTION_PREVIOUS.equals(action)) {
             previous();
+        } else if (ACTION_SEEK.equals(action)) {
+            if (player != null && prepared) {
+                int position = intent.getIntExtra("position", 0);
+                player.seekTo(Math.max(0, Math.min(position, player.getDuration())));
+                broadcastUpdate();
+            }
         } else if (ACTION_MODES.equals(action)) {
             shuffle = intent.getBooleanExtra("shuffle", false);
             repeat = intent.getBooleanExtra("repeat", false);
@@ -105,6 +125,8 @@ public class PlaybackService extends Service {
             player.setOnPreparedListener(mp -> {
                 prepared = true;
                 mp.start();
+                progressHandler.removeCallbacks(progressRunnable);
+                progressHandler.post(progressRunnable);
                 updateNotification();
                 broadcastUpdate();
             });
@@ -131,6 +153,7 @@ public class PlaybackService extends Service {
         if (player != null && prepared && player.isPlaying()) {
             player.pause();
         }
+        progressHandler.removeCallbacks(progressRunnable);
         updateNotification();
         broadcastUpdate();
     }
@@ -138,6 +161,8 @@ public class PlaybackService extends Service {
     private void resumePlayer() {
         if (player != null && prepared && !player.isPlaying()) {
             player.start();
+            progressHandler.removeCallbacks(progressRunnable);
+            progressHandler.post(progressRunnable);
         } else if (player == null && index >= 0) {
             playCurrent();
             return;
@@ -182,6 +207,10 @@ public class PlaybackService extends Service {
             player != null && prepared && player.isPlaying());
         update.putExtra("title", currentTitle());
         update.putExtra("artist", currentArtist());
+        update.putExtra("position",
+            player != null && prepared ? player.getCurrentPosition() : 0);
+        update.putExtra("duration",
+            player != null && prepared ? player.getDuration() : 0);
         sendBroadcast(update);
     }
 
@@ -253,6 +282,7 @@ public class PlaybackService extends Service {
     }
 
     private void releasePlayer() {
+        progressHandler.removeCallbacks(progressRunnable);
         if (player != null) {
             player.release();
             player = null;
