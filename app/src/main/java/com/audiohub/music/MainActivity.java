@@ -36,6 +36,13 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class MainActivity extends Activity {
 
@@ -411,8 +418,8 @@ public class MainActivity extends Activity {
         LinearLayout navigation = makeRow();
         navigation.setGravity(Gravity.CENTER_VERTICAL);
 
-        String[] pages = {"Home", "Library", "Playlists", "AI DJ", "Assistant", "Themes"};
-        String[] icons = {"⌂", "♫", "▤", "✦", "🤖", "◐"};
+        String[] pages = {"Home", "Library", "Playlists", "AI DJ", "Assistant", "Discover", "Themes"};
+        String[] icons = {"⌂", "♫", "▤", "✦", "🤖", "⌕", "◐"};
 
         for (int i = 0; i < pages.length; i++) {
             final String page = pages[i];
@@ -604,6 +611,8 @@ public class MainActivity extends Activity {
             showDj();
         } else if (page.equals("Assistant")) {
             showAssistant();
+        } else if (page.equals("Discover")) {
+            showDiscover();
         } else if (page.equals("Themes")) {
             showThemes();
         } else {
@@ -2178,6 +2187,241 @@ public class MainActivity extends Activity {
         offline.setGravity(android.view.Gravity.CENTER);
         offline.setPadding(0, dp(10), 0, 0);
         content.addView(offline);
+    }
+
+    void showDiscover() {
+        content.setPadding(dp(16), dp(14), dp(16), dp(12));
+
+        TextView heading = makeText("Discover Music", 25, white);
+        heading.setTypeface(null, android.graphics.Typeface.BOLD);
+        content.addView(heading);
+
+        TextView subtitle = makeText(
+            "Search songs, artists and albums from around the world.",
+            12, gray
+        );
+        subtitle.setPadding(0, dp(5), 0, dp(16));
+        content.addView(subtitle);
+
+        LinearLayout searchRow = makeRow();
+        searchRow.setGravity(Gravity.CENTER_VERTICAL);
+        searchRow.setPadding(dp(5), dp(4), dp(5), dp(4));
+        searchRow.setBackground(roundedCard(0xFF171421, 0x665B3B79));
+
+        EditText query = new EditText(this);
+        query.setSingleLine(true);
+        query.setTextColor(white);
+        query.setHintTextColor(gray);
+        query.setHint("Song, artist or album...");
+        query.setTextSize(14);
+        query.setPadding(dp(12), 0, dp(8), 0);
+        query.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+
+        searchRow.addView(query,
+            new LinearLayout.LayoutParams(0, dp(50), 1));
+
+        Button search = makeButton("SEARCH");
+        search.setTextSize(11);
+        searchRow.addView(search,
+            new LinearLayout.LayoutParams(dp(94), dp(46)));
+
+        content.addView(searchRow);
+
+        TextView note = makeText(
+            "Search online catalogues. Available previews are short clips; full-song downloads depend on source permissions.",
+            11, gray
+        );
+        note.setPadding(dp(2), dp(12), dp(2), dp(12));
+        content.addView(note);
+
+        ScrollView resultsScroll = new ScrollView(this);
+        resultsScroll.setFillViewport(true);
+
+        LinearLayout results = new LinearLayout(this);
+        results.setOrientation(LinearLayout.VERTICAL);
+        results.setPadding(0, dp(4), 0, dp(12));
+        resultsScroll.addView(results);
+
+        content.addView(resultsScroll,
+            new LinearLayout.LayoutParams(-1, 0, 1));
+
+        TextView empty = makeText(
+            "♫  Search for music to discover songs worldwide.",
+            13, gray
+        );
+        empty.setGravity(Gravity.CENTER);
+        empty.setPadding(dp(12), dp(35), dp(12), dp(35));
+        results.addView(empty);
+
+        search.setOnClickListener(v -> {
+            String term = query.getText().toString().trim();
+            if (term.isEmpty()) {
+                Toast.makeText(this, "Enter a song or artist name",
+                    Toast.LENGTH_SHORT).show();
+                return;
+            }
+            searchOnlineMusic(term, results, search);
+        });
+
+        query.setOnEditorActionListener((v, actionId, event) -> {
+            search.performClick();
+            return true;
+        });
+    }
+
+
+    void searchOnlineMusic(String term, LinearLayout results, Button search) {
+        results.removeAllViews();
+
+        TextView loading = makeText("Searching online music catalogue...", 13, gray);
+        loading.setGravity(Gravity.CENTER);
+        loading.setPadding(dp(10), dp(25), dp(10), dp(25));
+        results.addView(loading);
+        search.setEnabled(false);
+
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+
+            try {
+                String encoded = URLEncoder.encode(term, "UTF-8");
+                URL url = new URL(
+                    "https://itunes.apple.com/search?term=" + encoded
+                    + "&entity=song&limit=20"
+                );
+
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(12000);
+                connection.setReadTimeout(15000);
+                connection.setRequestProperty("User-Agent", "AudioHub/1.0");
+
+                int responseCode = connection.getResponseCode();
+                if (responseCode != 200) {
+                    throw new Exception("Online search failed. HTTP " + responseCode);
+                }
+
+                StringBuilder response = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(connection.getInputStream(), "UTF-8"))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+                }
+
+                JSONObject data = new JSONObject(response.toString());
+                JSONArray tracks = data.optJSONArray("results");
+
+                runOnUiThread(() -> {
+                    results.removeAllViews();
+
+                    if (tracks == null || tracks.length() == 0) {
+                        TextView none = makeText(
+                            "No songs found. Try another song or artist.",
+                            13, gray
+                        );
+                        none.setGravity(Gravity.CENTER);
+                        none.setPadding(dp(10), dp(25), dp(10), dp(25));
+                        results.addView(none);
+                        return;
+                    }
+
+                    for (int i = 0; i < tracks.length(); i++) {
+                        JSONObject track = tracks.optJSONObject(i);
+                        if (track == null) continue;
+
+                        String title = track.optString("trackName", "Unknown song");
+                        String artist = track.optString("artistName", "Unknown artist");
+                        String album = track.optString("collectionName", "Album unavailable");
+                        String previewUrl = track.optString("previewUrl", "");
+                        String trackUrl = track.optString("trackViewUrl", "");
+
+                        LinearLayout card = new LinearLayout(this);
+                        card.setOrientation(LinearLayout.VERTICAL);
+                        card.setPadding(dp(13), dp(11), dp(13), dp(11));
+                        card.setBackground(roundedCard(0xFF171421, 0x443F3155));
+
+                        LinearLayout.LayoutParams cardParams =
+                            new LinearLayout.LayoutParams(-1, -2);
+                        cardParams.setMargins(0, 0, 0, dp(9));
+                        results.addView(card, cardParams);
+
+                        TextView songTitle = makeText(title, 15, white);
+                        songTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+                        card.addView(songTitle);
+
+                        TextView details = makeText(
+                            artist + "  •  " + album, 11, gray
+                        );
+                        details.setPadding(0, dp(4), 0, dp(10));
+                        card.addView(details);
+
+                        LinearLayout actions = makeRow();
+                        actions.setGravity(Gravity.CENTER_VERTICAL);
+                        card.addView(actions);
+
+                        Button preview = makeButton("PREVIEW");
+                        preview.setTextSize(10);
+                        preview.setEnabled(!previewUrl.isEmpty());
+                        actions.addView(preview,
+                            new LinearLayout.LayoutParams(0, dp(40), 1));
+
+                        Button open = makeButton("OPEN");
+                        open.setTextSize(10);
+                        LinearLayout.LayoutParams openParams =
+                            new LinearLayout.LayoutParams(0, dp(40), 1);
+                        openParams.setMargins(dp(7), 0, 0, 0);
+                        actions.addView(open, openParams);
+
+                        preview.setOnClickListener(v -> {
+                            if (!previewUrl.isEmpty()) {
+                                try {
+                                    startActivity(new android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse(previewUrl)
+                                    ));
+                                } catch (Exception e) {
+                                    Toast.makeText(this, "Cannot open preview",
+                                        Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                        });
+
+                        open.setOnClickListener(v -> {
+                            if (!trackUrl.isEmpty()) {
+                                try {
+                                    startActivity(new android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse(trackUrl)
+                                    ));
+                                } catch (Exception e) {
+                                    Toast.makeText(this, "Cannot open song page",
+                                        Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                        });
+                    }
+                });
+
+            } catch (Exception e) {
+                String error = e.getMessage() == null
+                    ? "Check your internet connection and try again."
+                    : e.getMessage();
+
+                runOnUiThread(() -> {
+                    results.removeAllViews();
+                    TextView failed = makeText(
+                        "Search failed: " + error, 12, gray
+                    );
+                    failed.setPadding(dp(8), dp(20), dp(8), dp(20));
+                    results.addView(failed);
+                });
+
+            } finally {
+                if (connection != null) connection.disconnect();
+                runOnUiThread(() -> search.setEnabled(true));
+            }
+        }).start();
     }
 
     void showDj() {
