@@ -11,6 +11,9 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.graphics.BitmapFactory;
+import android.media.MediaMetadataRetriever;
+import android.graphics.Bitmap;
+import android.widget.ImageView;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
@@ -48,6 +51,7 @@ public class MainActivity extends Activity {
 
     LinearLayout root, content, trackList;
     TextView status, nowPlaying, playerArtist;
+    ImageView playerArtwork;
     Button playPauseButton, previousButton, nextButton;
     EditText searchInput;
     SeekBar playerSeekBar;
@@ -73,8 +77,15 @@ public class MainActivity extends Activity {
         public void onReceive(Context context, Intent intent) {
             if (!PlaybackService.ACTION_UPDATE.equals(intent.getAction())) return;
 
+            int previousTrackIndex = currentIndex;
             currentIndex = intent.getIntExtra("index", currentIndex);
             isPlaying = intent.getBooleanExtra("playing", false);
+
+            if (playerArtwork != null
+                    && currentIndex != previousTrackIndex
+                    && "Now Playing".equals(currentPage)) {
+                loadCurrentArtwork();
+            }
 
             String title = intent.getStringExtra("title");
             String artist = intent.getStringExtra("artist");
@@ -689,15 +700,18 @@ public class MainActivity extends Activity {
                 new LinearLayout.LayoutParams(dp(52), dp(48)));
         player.addView(topBar);
 
-        TextView artwork = makeText("♫", 100, white);
-        artwork.setGravity(Gravity.CENTER);
-        artwork.setBackground(roundedCard(0xFF251638, 0xFF9B5DE5));
-        artwork.setElevation(dp(10));
+        playerArtwork = new ImageView(this);
+        playerArtwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        playerArtwork.setBackground(roundedCard(0xFF251638, 0xFF9B5DE5));
+        playerArtwork.setClipToOutline(true);
+        playerArtwork.setElevation(dp(10));
+        playerArtwork.setContentDescription("Album artwork");
 
         LinearLayout.LayoutParams artParams =
                 new LinearLayout.LayoutParams(dp(250), dp(250));
         artParams.setMargins(0, dp(28), 0, dp(28));
-        player.addView(artwork, artParams);
+        player.addView(playerArtwork, artParams);
+        loadCurrentArtwork();
 
         String title = currentIndex >= 0 && currentIndex < currentTracks.size()
                 ? currentTracks.get(currentIndex).title : "Choose a song";
@@ -819,6 +833,49 @@ public class MainActivity extends Activity {
 
         content.addView(player,
                 new LinearLayout.LayoutParams(-1, -1));
+    }
+
+    void loadCurrentArtwork() {
+        if (playerArtwork == null || currentIndex < 0
+                || currentIndex >= currentTracks.size()) return;
+
+        AudioTrack track = currentTracks.get(currentIndex);
+        android.net.Uri requestedUri = track.uri;
+
+        if (requestedUri.equals(playerArtwork.getTag())) return;
+
+        playerArtwork.setTag(requestedUri);
+        playerArtwork.setImageDrawable(null);
+
+        new Thread(() -> {
+            Bitmap bitmap = null;
+            MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+
+            try {
+                retriever.setDataSource(getApplicationContext(), requestedUri);
+                byte[] picture = retriever.getEmbeddedPicture();
+
+                if (picture != null) {
+                    bitmap = BitmapFactory.decodeByteArray(
+                            picture, 0, picture.length);
+                }
+            } catch (Exception ignored) {
+            } finally {
+                try {
+                    retriever.release();
+                } catch (Exception ignored) {
+                }
+            }
+
+            final Bitmap result = bitmap;
+            runOnUiThread(() -> {
+                if (playerArtwork != null
+                        && requestedUri.equals(playerArtwork.getTag())
+                        && result != null) {
+                    playerArtwork.setImageBitmap(result);
+                }
+            });
+        }).start();
     }
 
     void showHome() {
