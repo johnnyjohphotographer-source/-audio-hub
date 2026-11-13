@@ -802,67 +802,63 @@ public class MainActivity extends Activity {
         LinearLayout player = new LinearLayout(this);
         player.setOrientation(LinearLayout.VERTICAL);
         player.setGravity(Gravity.CENTER_HORIZONTAL);
-        player.setPadding(dp(18), dp(8), dp(18), dp(14));
+        player.setPadding(dp(24), dp(12), dp(24), dp(18));
         player.setBackground(new GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0xFF21152F, 0xFF100E18, 0xFF09090F}));
+                new int[]{0xFF202020, 0xFF121212, 0xFF080808}));
 
         LinearLayout topBar = makeRow();
         topBar.setGravity(Gravity.CENTER_VERTICAL);
 
-        Button backButton = makeButton("‹");
-        backButton.setTextSize(29);
-        backButton.setBackground(roundedCard(0xFF211A2D, 0x445B3B79));
+        Button backButton = makeButton("⌄");
+        backButton.setTextSize(27);
+        backButton.setTextColor(white);
+        backButton.setBackground(roundedCard(0xFF292929, 0x00292929));
         topBar.addView(backButton,
-                new LinearLayout.LayoutParams(dp(48), dp(46)));
+                new LinearLayout.LayoutParams(dp(46), dp(46)));
         backButton.setOnClickListener(v -> closeNowPlaying());
 
         LinearLayout topTitle = new LinearLayout(this);
         topTitle.setOrientation(LinearLayout.VERTICAL);
         topTitle.setGravity(Gravity.CENTER);
 
-        TextView heading = makeText("NOW PLAYING", 11, 0xFFC4B5D8);
+        TextView heading = makeText("PLAYING FROM YOUR LIBRARY", 10, 0xFFBDBDBD);
         heading.setTypeface(null, android.graphics.Typeface.BOLD);
         topTitle.addView(heading);
 
-        TextView subHeading = makeText("AUDIO HUB • PLAYER", 9, gray);
+        TextView subHeading = makeText("AUDIO HUB", 9, 0xFF888888);
+        subHeading.setPadding(0, dp(3), 0, 0);
         topTitle.addView(subHeading);
 
         topBar.addView(topTitle,
                 new LinearLayout.LayoutParams(0, -2, 1));
 
         Button queueButton = makeButton("☷");
-        queueButton.setTextSize(21);
-        queueButton.setBackground(roundedCard(0xFF211A2D, 0x445B3B79));
+        queueButton.setTextSize(23);
+        queueButton.setTextColor(white);
+        queueButton.setBackground(roundedCard(0xFF292929, 0x00292929));
         topBar.addView(queueButton,
-                new LinearLayout.LayoutParams(dp(48), dp(46)));
+                new LinearLayout.LayoutParams(dp(46), dp(46)));
         queueButton.setOnClickListener(v ->
                 Toast.makeText(this, "Queue is managed from your library",
                         Toast.LENGTH_SHORT).show());
 
         player.addView(topBar);
 
-        LinearLayout artFrame = new LinearLayout(this);
-        artFrame.setGravity(Gravity.CENTER);
-        artFrame.setPadding(dp(5), dp(5), dp(5), dp(5));
-        artFrame.setBackground(roundedCard(0xFF241832, 0x885B3B79));
-        artFrame.setElevation(dp(12));
-
         playerArtwork = new ImageView(this);
         playerArtwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        playerArtwork.setBackground(roundedCard(0xFF30213F, 0xFF8050B8));
+        playerArtwork.setBackground(roundedCard(0xFF282828, 0x00282828));
         playerArtwork.setClipToOutline(true);
+        playerArtwork.setElevation(dp(12));
         playerArtwork.setContentDescription("Album artwork");
 
         int screenWidth = getResources().getDisplayMetrics().widthPixels;
-        int artSize = Math.min(dp(310), screenWidth - dp(62));
-        artFrame.addView(playerArtwork,
-                new LinearLayout.LayoutParams(artSize, artSize));
+        int artSize = Math.min(dp(330), screenWidth - dp(48));
 
         LinearLayout.LayoutParams artParams =
-                new LinearLayout.LayoutParams(-1, -2);
-        artParams.setMargins(0, dp(18), 0, dp(22));
-        player.addView(artFrame, artParams);
+                new LinearLayout.LayoutParams(artSize, artSize);
+        artParams.setMargins(0, dp(22), 0, dp(26));
+        player.addView(playerArtwork, artParams);
         loadCurrentArtwork();
 
         String title = currentIndex >= 0 && currentIndex < currentTracks.size()
@@ -882,7 +878,7 @@ public class MainActivity extends Activity {
         nowPlaying.setEllipsize(android.text.TextUtils.TruncateAt.END);
         songLabels.addView(nowPlaying);
 
-        playerArtist = makeText(artist, 13, 0xFFB5A9C4);
+        playerArtist = makeText(artist, 14, 0xFFB3B3B3);
         playerArtist.setPadding(0, dp(5), 0, 0);
         playerArtist.setMaxLines(1);
         playerArtist.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -891,10 +887,10 @@ public class MainActivity extends Activity {
         songInfo.addView(songLabels,
                 new LinearLayout.LayoutParams(0, -2, 1));
 
-        TextView heart = makeText("♫", 24, purple);
+        TextView heart = makeText("♡", 30, 0xFFB56CFF);
         heart.setGravity(Gravity.CENTER);
         songInfo.addView(heart,
-                new LinearLayout.LayoutParams(dp(42), dp(48)));
+                new LinearLayout.LayoutParams(dp(44), dp(50)));
         player.addView(songInfo);
 
         playerSeekBar = new SeekBar(this);
@@ -904,6 +900,7 @@ public class MainActivity extends Activity {
                 android.content.res.ColorStateList.valueOf(0xFFB56CFF));
         playerSeekBar.setThumbTintList(
                 android.content.res.ColorStateList.valueOf(white));
+
         LinearLayout.LayoutParams seekParams =
                 new LinearLayout.LayoutParams(-1, dp(34));
         seekParams.setMargins(0, dp(12), 0, 0);
@@ -912,8 +909,8 @@ public class MainActivity extends Activity {
         LinearLayout timeRow = makeRow();
         timeRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        elapsedTimeText = makeText("00:00", 11, 0xFFB5A9C4);
-        durationTimeText = makeText("00:00", 11, 0xFFB5A9C4);
+        elapsedTimeText = makeText("00:00", 11, 0xFFB3B3B3);
+        durationTimeText = makeText("00:00", 11, 0xFFB3B3B3);
 
         timeRow.addView(elapsedTimeText,
                 new LinearLayout.LayoutParams(0, -2, 1));
@@ -950,33 +947,34 @@ public class MainActivity extends Activity {
 
         LinearLayout transport = makeRow();
         transport.setGravity(Gravity.CENTER);
-        transport.setPadding(0, dp(12), 0, dp(10));
+        transport.setPadding(0, dp(18), 0, dp(12));
 
         previousButton = makeButton("⏮");
         playPauseButton = makeButton(isPlaying ? "Ⅱ" : "▶");
         nextButton = makeButton("⏭");
 
-        previousButton.setTextSize(20);
-        previousButton.setBackground(
-                roundedCard(0xFF211A2D, 0x445B3B79));
+        previousButton.setTextSize(24);
+        previousButton.setTextColor(white);
+        previousButton.setBackground(roundedCard(0x00202020, 0x00202020));
 
-        playPauseButton.setTextSize(25);
-        playPauseButton.setTextColor(0xFF160D20);
-        playPauseButton.setBackground(new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0xFFD9A7FF, 0xFFA855F7}));
+        playPauseButton.setTextSize(27);
+        playPauseButton.setTextColor(0xFF111111);
+        GradientDrawable playCircle = new GradientDrawable();
+        playCircle.setShape(GradientDrawable.OVAL);
+        playCircle.setColor(0xFFFFFFFF);
+        playPauseButton.setBackground(playCircle);
         playPauseButton.setElevation(dp(8));
 
-        nextButton.setTextSize(20);
-        nextButton.setBackground(
-                roundedCard(0xFF211A2D, 0x445B3B79));
+        nextButton.setTextSize(24);
+        nextButton.setTextColor(white);
+        nextButton.setBackground(roundedCard(0x00202020, 0x00202020));
 
         transport.addView(previousButton,
-                new LinearLayout.LayoutParams(0, dp(56), 1));
+                new LinearLayout.LayoutParams(0, dp(58), 1));
         transport.addView(playPauseButton,
-                new LinearLayout.LayoutParams(0, dp(58), 1.35f));
+                new LinearLayout.LayoutParams(dp(66), dp(66)));
         transport.addView(nextButton,
-                new LinearLayout.LayoutParams(0, dp(56), 1));
+                new LinearLayout.LayoutParams(0, dp(58), 1));
         player.addView(transport);
 
         previousButton.setOnClickListener(v ->
@@ -990,7 +988,7 @@ public class MainActivity extends Activity {
 
         LinearLayout extras = makeRow();
         extras.setGravity(Gravity.CENTER);
-        extras.setPadding(0, dp(5), 0, 0);
+        extras.setPadding(0, dp(8), 0, 0);
 
         Button micButton = makeButton("MIC");
         Button shuffleButton = makeButton(shuffle ? "SHUFFLE ON" : "SHUFFLE");
@@ -1000,18 +998,22 @@ public class MainActivity extends Activity {
         shuffleButton.setTextSize(10);
         repeatButton.setTextSize(10);
 
-        micButton.setBackground(roundedCard(0xFF211A2D, 0x445B3B79));
+        micButton.setTextColor(0xFFBDBDBD);
+        shuffleButton.setTextColor(shuffle ? 0xFFB56CFF : 0xFFBDBDBD);
+        repeatButton.setTextColor(repeat ? 0xFFB56CFF : 0xFFBDBDBD);
+
+        micButton.setBackground(roundedCard(0xFF242424, 0x00242424));
         shuffleButton.setBackground(roundedCard(
-                shuffle ? 0xFF482565 : 0xFF211A2D, 0x885B3B79));
+                shuffle ? 0xFF382448 : 0xFF242424, 0x00242424));
         repeatButton.setBackground(roundedCard(
-                repeat ? 0xFF482565 : 0xFF211A2D, 0x885B3B79));
+                repeat ? 0xFF382448 : 0xFF242424, 0x00242424));
 
         extras.addView(micButton,
-                new LinearLayout.LayoutParams(0, dp(43), 1));
+                new LinearLayout.LayoutParams(0, dp(42), 1));
         extras.addView(shuffleButton,
-                new LinearLayout.LayoutParams(0, dp(43), 1.25f));
+                new LinearLayout.LayoutParams(0, dp(42), 1.25f));
         extras.addView(repeatButton,
-                new LinearLayout.LayoutParams(0, dp(43), 1.15f));
+                new LinearLayout.LayoutParams(0, dp(42), 1.15f));
         player.addView(extras);
 
         micButton.setOnClickListener(v -> startVoiceCommand());
@@ -1020,16 +1022,18 @@ public class MainActivity extends Activity {
             shuffle = !shuffle;
             updateModes();
             shuffleButton.setText(shuffle ? "SHUFFLE ON" : "SHUFFLE");
+            shuffleButton.setTextColor(shuffle ? 0xFFB56CFF : 0xFFBDBDBD);
             shuffleButton.setBackground(roundedCard(
-                    shuffle ? 0xFF482565 : 0xFF211A2D, 0x885B3B79));
+                    shuffle ? 0xFF382448 : 0xFF242424, 0x00242424));
         });
 
         repeatButton.setOnClickListener(v -> {
             repeat = !repeat;
             updateModes();
             repeatButton.setText(repeat ? "REPEAT ON" : "REPEAT");
+            repeatButton.setTextColor(repeat ? 0xFFB56CFF : 0xFFBDBDBD);
             repeatButton.setBackground(roundedCard(
-                    repeat ? 0xFF482565 : 0xFF211A2D, 0x885B3B79));
+                    repeat ? 0xFF382448 : 0xFF242424, 0x00242424));
         });
 
         content.addView(player, new LinearLayout.LayoutParams(-1, -1));
