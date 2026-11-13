@@ -1054,6 +1054,50 @@ public class MainActivity extends Activity {
         content.addView(player, new LinearLayout.LayoutParams(-1, -1));
     }
 
+    Bitmap createArtworkFallback(String title) {
+        int size = 600;
+        Bitmap bitmap = Bitmap.createBitmap(size, size,
+                Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas canvas =
+                new android.graphics.Canvas(bitmap);
+
+        android.graphics.Paint paint =
+                new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+
+        paint.setShader(new android.graphics.LinearGradient(
+                0, 0, size, size,
+                new int[]{0xFF54258A, 0xFF21143D, 0xFF090914},
+                null, android.graphics.Shader.TileMode.CLAMP));
+        canvas.drawRect(0, 0, size, size, paint);
+        paint.setShader(null);
+
+        paint.setColor(0x33FFFFFF);
+        canvas.drawCircle(480, 100, 190, paint);
+        canvas.drawCircle(80, 520, 230, paint);
+
+        paint.setColor(0x55B56CFF);
+        canvas.drawCircle(300, 270, 145, paint);
+
+        paint.setColor(0xFFFFFFFF);
+        paint.setTextAlign(android.graphics.Paint.Align.CENTER);
+        paint.setTypeface(android.graphics.Typeface.create(
+                "sans-serif", android.graphics.Typeface.BOLD));
+        paint.setTextSize(190);
+        canvas.drawText("♫", 300, 335, paint);
+
+        paint.setTextSize(27);
+        paint.setLetterSpacing(0.15f);
+        canvas.drawText("A U D I O   H U B", 300, 510, paint);
+
+        paint.setTextSize(20);
+        paint.setColor(0xFFCFB9E8);
+        String label = title == null ? "" : title.trim();
+        if (label.length() > 30) label = label.substring(0, 27) + "...";
+        canvas.drawText(label, 300, 555, paint);
+
+        return bitmap;
+    }
+
     void loadCurrentArtwork() {
         if (playerArtwork == null || currentIndex < 0
                 || currentIndex >= currentTracks.size()) return;
@@ -1064,7 +1108,7 @@ public class MainActivity extends Activity {
         if (requestedUri.equals(playerArtwork.getTag())) return;
 
         playerArtwork.setTag(requestedUri);
-        playerArtwork.setImageDrawable(null);
+        playerArtwork.setImageBitmap(createArtworkFallback(track.title));
 
         new Thread(() -> {
             Bitmap bitmap = null;
