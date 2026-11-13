@@ -3,6 +3,7 @@ package com.audiohub.music;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.DownloadManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -20,6 +21,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.os.Build;
+import android.os.Environment;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -2232,7 +2234,7 @@ public class MainActivity extends Activity {
         content.addView(searchRow);
 
         TextView note = makeText(
-            "Search online catalogues. Available previews are short clips; full-song downloads depend on source permissions.",
+            "iTunes offers short previews. Internet Archive provides full-length CC0 tracks for streaming and download.",
             11, gray
         );
         note.setPadding(dp(2), dp(12), dp(2), dp(12));
@@ -2327,6 +2329,7 @@ public class MainActivity extends Activity {
                         none.setGravity(Gravity.CENTER);
                         none.setPadding(dp(10), dp(25), dp(10), dp(25));
                         results.addView(none);
+                        searchInternetArchive(term, results);
                         return;
                     }
 
@@ -2485,6 +2488,7 @@ public class MainActivity extends Activity {
                     );
                     failed.setPadding(dp(8), dp(20), dp(8), dp(20));
                     results.addView(failed);
+                    searchInternetArchive(term, results);
                 });
 
             } finally {
@@ -2492,6 +2496,261 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> search.setEnabled(true));
             }
         }).start();
+    }
+
+    void downloadArchiveTrack(String title, String url) {
+        try {
+            DownloadManager manager = (DownloadManager)
+                getSystemService(Context.DOWNLOAD_SERVICE);
+            if (manager == null) {
+                Toast.makeText(this, "Download service unavailable",
+                    Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            DownloadManager.Request request =
+                new DownloadManager.Request(Uri.parse(url));
+            request.setTitle(title);
+            request.setDescription("Downloading from Internet Archive (CC0)");
+            request.setNotificationVisibility(
+                DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED
+            );
+            request.setAllowedOverMetered(true);
+            request.setAllowedOverRoaming(false);
+            manager.enqueue(request);
+
+            Toast.makeText(this, "Download started: " + title,
+                Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "Download failed: " + e.getMessage(),
+                Toast.LENGTH_LONG).show();
+        }
+    }
+
+    void searchInternetArchive(String term, LinearLayout results) {
+        new Thread(() -> {
+            try {
+                String safeTerm = term.replaceAll("[^A-Za-z0-9 ]", " ")
+                    .trim().replaceAll("\\s+", " ");
+                String query = "mediatype:audio AND licenseurl:"
+                    + "\"http://creativecommons.org/publicdomain/zero/1.0/\""
+                    + " AND (title:(" + safeTerm + ") OR creator:("
+                    + safeTerm + "))";
+                String api = "https://archive.org/advancedsearch.php?q="
+                    + URLEncoder.encode(query, "UTF-8")
+                    + "&fl[]=identifier&rows=12&output=json";
+
+                JSONObject searchData = readArchiveJson(api);
+                JSONObject response = searchData.optJSONObject("response");
+                JSONArray docs = response == null ? null
+                    : response.optJSONArray("docs");
+
+                ArrayList<JSONObject> found = new ArrayList<>();
+                if (docs != null) {
+                    for (int i = 0; i < docs.length(); i++) {
+                        JSONObject doc = docs.optJSONObject(i);
+                        if (doc == null) continue;
+                        String id = doc.optString("identifier", "");
+                        if (id.isEmpty()) continue;
+
+                        JSONObject metadataData = readArchiveJson(
+                            "https://archive.org/metadata/"
+                                + URLEncoder.encode(id, "UTF-8")
+                        );
+                        JSONObject metadata =
+                            metadataData.optJSONObject("metadata");
+                        if (metadata == null) continue;
+
+                        String license = metadata.optString("licenseurl", "");
+                        if (!license.equals(
+                            "http://creativecommons.org/publicdomain/zero/1.0/"
+                        )) continue;
+
+                        JSONArray files = metadataData.optJSONArray("files");
+                        if (files == null) continue;
+                        for (int j = 0; j < files.length(); j++) {
+                            JSONObject file = files.optJSONObject(j);
+                            if (file == null) continue;
+                            String name = file.optString("name", "");
+                            if (!name.toLowerCase(Locale.ROOT).endsWith(".mp3")
+                                    || file.has("private")) continue;
+
+                            JSONObject item = new JSONObject();
+                            item.put("id", id);
+                            item.put("title", metadata.optString("title", id));
+                            item.put("creator", metadata.optString("creator",
+                                "Unknown artist"));
+                            item.put("file", name);
+                            found.add(item);
+                            break;
+                        }
+                    }
+                }
+
+                runOnUiThread(() -> {
+                    if (found.isEmpty()) {
+                        TextView none = makeText(
+                            "No CC0 full-length MP3 tracks found for this search.",
+                            12, gray);
+                        none.setPadding(dp(8), dp(12), dp(8), dp(12));
+                        results.addView(none);
+                        return;
+                    }
+                    TextView heading = makeText(
+                        "INTERNET ARCHIVE • CC0 FULL TRACKS", 13, purple);
+                    heading.setTypeface(null, android.graphics.Typeface.BOLD);
+                    heading.setPadding(0, dp(14), 0, dp(9));
+                    results.addView(heading);
+
+                    for (JSONObject item : found) {
+                        String title = item.optString("title", "Unknown track");
+                        String creator = item.optString("creator", "Unknown artist");
+                        String id = item.optString("id", "");
+                        String file = item.optString("file", "");
+                        String filePath = Uri.encode(file).replace("+", "%20");
+                        String audioUrl = "https://archive.org/download/"
+                            + Uri.encode(id) + "/" + filePath;
+
+                        LinearLayout card = new LinearLayout(this);
+                        card.setOrientation(LinearLayout.VERTICAL);
+                        card.setPadding(dp(13), dp(11), dp(13), dp(11));
+                        card.setBackground(roundedCard(0xFF171421, 0x443F3155));
+                        LinearLayout.LayoutParams params =
+                            new LinearLayout.LayoutParams(-1, -2);
+                        params.setMargins(0, 0, 0, dp(9));
+                        results.addView(card, params);
+
+                        TextView name = makeText(title, 15, white);
+                        name.setTypeface(null, android.graphics.Typeface.BOLD);
+                        card.addView(name);
+                        TextView details = makeText(
+                            creator + "  •  Internet Archive • CC0",
+                            11, gray);
+                        details.setPadding(0, dp(4), 0, dp(10));
+                        card.addView(details);
+
+                        LinearLayout actions = makeRow();
+                        actions.setGravity(Gravity.CENTER_VERTICAL);
+                        card.addView(actions);
+
+                        Button play = makeButton("PLAY FULL");
+                        play.setTextSize(10);
+                        actions.addView(play,
+                            new LinearLayout.LayoutParams(0, dp(40), 1));
+
+                        Button download = makeButton("DOWNLOAD");
+                        download.setTextSize(10);
+                        LinearLayout.LayoutParams downloadParams =
+                            new LinearLayout.LayoutParams(0, dp(40), 1);
+                        downloadParams.setMargins(dp(7), 0, 0, 0);
+                        actions.addView(download, downloadParams);
+
+                        play.setOnClickListener(v -> playArchiveTrack(
+                            title, audioUrl, play));
+                        download.setOnClickListener(v ->
+                            downloadArchiveTrack(title, audioUrl));
+                    }
+                    searchInternetArchive(term, results);
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    TextView error = makeText(
+                        "Internet Archive search unavailable. iTunes results remain available.",
+                        12, gray);
+                    error.setPadding(dp(8), dp(10), dp(8), dp(10));
+                    results.addView(error);
+                });
+            }
+        }).start();
+    }
+
+    JSONObject readArchiveJson(String address) throws Exception {
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection) new URL(address).openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(12000);
+            conn.setRequestProperty("User-Agent", "AudioHub/1.0");
+            if (conn.getResponseCode() != 200) {
+                throw new Exception("Archive HTTP " + conn.getResponseCode());
+            }
+            StringBuilder body = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream(), "UTF-8"))) {
+                String line;
+                while ((line = reader.readLine()) != null) body.append(line);
+            }
+            return new JSONObject(body.toString());
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
+    void playArchiveTrack(String title, String audioUrl, Button play) {
+        if (activePreviewButton == play && discoverPlayer != null) {
+            try {
+                if (discoverPlayer.isPlaying()) {
+                    discoverPlayer.pause();
+                    play.setText("PLAY FULL");
+                } else if (discoverPreviewPrepared) {
+                    discoverPlayer.start();
+                    play.setText("PAUSE");
+                }
+            } catch (IllegalStateException ignored) {
+                play.setText("PLAY FULL");
+            }
+            return;
+        }
+
+        if (discoverPlayer != null) {
+            try { discoverPlayer.release(); } catch (Exception ignored) {}
+            discoverPlayer = null;
+        }
+        if (activePreviewButton != null) activePreviewButton.setText("PLAY");
+        activePreviewButton = play;
+        discoverPreviewPrepared = false;
+        play.setText("LOADING");
+
+        try {
+            discoverPlayer = new MediaPlayer();
+            discoverPlayer.setAudioStreamType(
+                android.media.AudioManager.STREAM_MUSIC);
+            discoverPlayer.setDataSource(audioUrl);
+            discoverPlayer.setOnPreparedListener(mp -> {
+                discoverPreviewPrepared = true;
+                mp.start();
+                play.setText("PAUSE");
+            });
+            discoverPlayer.setOnCompletionListener(mp -> {
+                play.setText("PLAY FULL");
+                discoverPreviewPrepared = false;
+                discoverPlayer = null;
+                activePreviewButton = null;
+                mp.release();
+            });
+            discoverPlayer.setOnErrorListener((mp, what, extra) -> {
+                play.setText("PLAY FULL");
+                discoverPreviewPrepared = false;
+                discoverPlayer = null;
+                activePreviewButton = null;
+                mp.release();
+                Toast.makeText(this, "Full track playback failed",
+                    Toast.LENGTH_SHORT).show();
+                return true;
+            });
+            discoverPlayer.prepareAsync();
+        } catch (Exception e) {
+            play.setText("PLAY FULL");
+            discoverPreviewPrepared = false;
+            activePreviewButton = null;
+            if (discoverPlayer != null) {
+                discoverPlayer.release();
+                discoverPlayer = null;
+            }
+            Toast.makeText(this, "Cannot play full track",
+                Toast.LENGTH_SHORT).show();
+        }
     }
 
     void showDj() {
