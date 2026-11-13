@@ -58,7 +58,10 @@ public class MainActivity extends Activity {
     SeekBar playerSeekBar;
     TextView elapsedTimeText, durationTimeText;
     boolean userSeeking = false;
-    LinearLayout appHeader, navigationBar;
+    LinearLayout appHeader, navigationBar, miniPlayer;
+    ImageView miniArtwork;
+    TextView miniTitle, miniArtist;
+    Button miniPlayPauseButton, miniNextButton;
 
     List<AudioTrack> currentTracks = new ArrayList<>();
     int renderedTrackCount = 0;
@@ -84,6 +87,20 @@ public class MainActivity extends Activity {
             int previousTrackIndex = currentIndex;
             currentIndex = intent.getIntExtra("index", currentIndex);
             isPlaying = intent.getBooleanExtra("playing", false);
+            String title = intent.getStringExtra("title");
+            String artist = intent.getStringExtra("artist");
+
+            if (miniTitle != null && miniArtist != null
+                    && miniPlayPauseButton != null && miniPlayer != null) {
+                miniTitle.setText(title == null || title.isEmpty()
+                        ? "Nothing playing" : title);
+                miniArtist.setText(artist == null || artist.isEmpty()
+                        ? "AUDIO HUB" : artist);
+                miniPlayPauseButton.setText(isPlaying ? "Ⅱ" : "▶");
+                miniPlayer.setVisibility(
+                        "Now Playing".equals(currentPage) ? View.GONE : View.VISIBLE);
+            }
+            if (currentIndex != previousTrackIndex) loadMiniArtwork();
 
             if (playerArtwork != null
                     && currentIndex != previousTrackIndex
@@ -91,8 +108,6 @@ public class MainActivity extends Activity {
                 loadCurrentArtwork();
             }
 
-            String title = intent.getStringExtra("title");
-            String artist = intent.getStringExtra("artist");
 
             int position = intent.getIntExtra("position", 0);
             int duration = intent.getIntExtra("duration", 0);
@@ -384,6 +399,7 @@ public class MainActivity extends Activity {
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
+        createMiniPlayer();
 
         // Premium bottom navigation
         navigationBar = new LinearLayout(this);
@@ -463,6 +479,104 @@ public class MainActivity extends Activity {
         showPage("Home");
     }
 
+
+    void createMiniPlayer() {
+        miniPlayer = makeRow();
+        miniPlayer.setGravity(Gravity.CENTER_VERTICAL);
+        miniPlayer.setPadding(dp(10), dp(8), dp(9), dp(8));
+        miniPlayer.setBackground(roundedCard(0xFF191522, 0x665B3B79));
+        miniPlayer.setElevation(dp(7));
+
+        miniArtwork = new ImageView(this);
+        miniArtwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        miniArtwork.setBackground(roundedCard(0xFF39205F, 0xFF8050B8));
+        miniArtwork.setClipToOutline(true);
+        miniPlayer.addView(miniArtwork,
+                new LinearLayout.LayoutParams(dp(46), dp(46)));
+
+        LinearLayout info = new LinearLayout(this);
+        info.setOrientation(LinearLayout.VERTICAL);
+        info.setGravity(Gravity.CENTER_VERTICAL);
+        info.setPadding(dp(10), 0, dp(5), 0);
+
+        miniTitle = makeText("Choose a song", 12, white);
+        miniTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        miniTitle.setMaxLines(1);
+        miniTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        info.addView(miniTitle);
+
+        miniArtist = makeText("AUDIO HUB", 10, gray);
+        miniArtist.setMaxLines(1);
+        miniArtist.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        info.addView(miniArtist);
+
+        miniPlayer.addView(info,
+                new LinearLayout.LayoutParams(0, -2, 1));
+
+        miniPlayPauseButton = makeButton(isPlaying ? "Ⅱ" : "▶");
+        miniPlayPauseButton.setTextSize(18);
+        miniPlayer.addView(miniPlayPauseButton,
+                new LinearLayout.LayoutParams(dp(43), dp(44)));
+
+        miniNextButton = makeButton("⏭");
+        miniNextButton.setTextSize(17);
+        miniPlayer.addView(miniNextButton,
+                new LinearLayout.LayoutParams(dp(43), dp(44)));
+
+        miniPlayPauseButton.setOnClickListener(v ->
+                sendAction(isPlaying
+                        ? PlaybackService.ACTION_PAUSE
+                        : PlaybackService.ACTION_RESUME));
+
+        miniNextButton.setOnClickListener(v ->
+                sendAction(PlaybackService.ACTION_NEXT));
+
+        miniPlayer.setOnClickListener(v -> openNowPlaying());
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(0, dp(7), 0, dp(2));
+        root.addView(miniPlayer, params);
+        miniPlayer.setVisibility(currentIndex < 0 ? View.GONE : View.VISIBLE);
+    }
+
+    void loadMiniArtwork() {
+        if (miniArtwork == null || currentIndex < 0
+                || currentIndex >= currentTracks.size()) return;
+
+        AudioTrack track = currentTracks.get(currentIndex);
+        Uri requestedUri = track.uri;
+        if (requestedUri.equals(miniArtwork.getTag())) return;
+
+        miniArtwork.setTag(requestedUri);
+        miniArtwork.setImageDrawable(null);
+
+        new Thread(() -> {
+            Bitmap bitmap = null;
+            MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+            try {
+                retriever.setDataSource(getApplicationContext(), requestedUri);
+                byte[] picture = retriever.getEmbeddedPicture();
+                if (picture != null) {
+                    bitmap = BitmapFactory.decodeByteArray(
+                            picture, 0, picture.length);
+                }
+            } catch (Exception ignored) {
+            } finally {
+                try { retriever.release(); } catch (Exception ignored) {}
+            }
+
+            Bitmap result = bitmap;
+            runOnUiThread(() -> {
+                if (miniArtwork != null
+                        && requestedUri.equals(miniArtwork.getTag())
+                        && result != null) {
+                    miniArtwork.setImageBitmap(result);
+                }
+            });
+        }).start();
+    }
+
     void showPage(String page) {
         currentPage = page;
 
@@ -472,6 +586,10 @@ public class MainActivity extends Activity {
         }
         if (navigationBar != null) {
             navigationBar.setVisibility(immersive ? View.GONE : View.VISIBLE);
+        }
+        if (miniPlayer != null) {
+            miniPlayer.setVisibility(
+                    immersive || currentIndex < 0 ? View.GONE : View.VISIBLE);
         }
 
         content.removeAllViews();
@@ -679,44 +797,72 @@ public class MainActivity extends Activity {
         content.addView(card, params);
     }
 
+
     void showNowPlaying() {
         LinearLayout player = new LinearLayout(this);
         player.setOrientation(LinearLayout.VERTICAL);
         player.setGravity(Gravity.CENTER_HORIZONTAL);
-        player.setPadding(dp(8), dp(8), dp(8), dp(18));
+        player.setPadding(dp(18), dp(8), dp(18), dp(14));
+        player.setBackground(new GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0xFF21152F, 0xFF100E18, 0xFF09090F}));
 
         LinearLayout topBar = makeRow();
         topBar.setGravity(Gravity.CENTER_VERTICAL);
 
         Button backButton = makeButton("‹");
-        backButton.setTextSize(27);
+        backButton.setTextSize(29);
+        backButton.setBackground(roundedCard(0xFF211A2D, 0x445B3B79));
         topBar.addView(backButton,
-                new LinearLayout.LayoutParams(dp(52), dp(48)));
+                new LinearLayout.LayoutParams(dp(48), dp(46)));
         backButton.setOnClickListener(v -> closeNowPlaying());
 
-        TextView heading = makeText("NOW PLAYING", 12, gray);
-        heading.setGravity(Gravity.CENTER);
+        LinearLayout topTitle = new LinearLayout(this);
+        topTitle.setOrientation(LinearLayout.VERTICAL);
+        topTitle.setGravity(Gravity.CENTER);
+
+        TextView heading = makeText("NOW PLAYING", 11, 0xFFC4B5D8);
         heading.setTypeface(null, android.graphics.Typeface.BOLD);
-        topBar.addView(heading,
+        topTitle.addView(heading);
+
+        TextView subHeading = makeText("AUDIO HUB • PLAYER", 9, gray);
+        topTitle.addView(subHeading);
+
+        topBar.addView(topTitle,
                 new LinearLayout.LayoutParams(0, -2, 1));
 
-        TextView queueLabel = makeText("♫", 22, purple);
-        queueLabel.setGravity(Gravity.CENTER);
-        topBar.addView(queueLabel,
-                new LinearLayout.LayoutParams(dp(52), dp(48)));
+        Button queueButton = makeButton("☷");
+        queueButton.setTextSize(21);
+        queueButton.setBackground(roundedCard(0xFF211A2D, 0x445B3B79));
+        topBar.addView(queueButton,
+                new LinearLayout.LayoutParams(dp(48), dp(46)));
+        queueButton.setOnClickListener(v ->
+                Toast.makeText(this, "Queue is managed from your library",
+                        Toast.LENGTH_SHORT).show());
+
         player.addView(topBar);
+
+        LinearLayout artFrame = new LinearLayout(this);
+        artFrame.setGravity(Gravity.CENTER);
+        artFrame.setPadding(dp(5), dp(5), dp(5), dp(5));
+        artFrame.setBackground(roundedCard(0xFF241832, 0x885B3B79));
+        artFrame.setElevation(dp(12));
 
         playerArtwork = new ImageView(this);
         playerArtwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        playerArtwork.setBackground(roundedCard(0xFF251638, 0xFF9B5DE5));
+        playerArtwork.setBackground(roundedCard(0xFF30213F, 0xFF8050B8));
         playerArtwork.setClipToOutline(true);
-        playerArtwork.setElevation(dp(10));
         playerArtwork.setContentDescription("Album artwork");
 
+        int screenWidth = getResources().getDisplayMetrics().widthPixels;
+        int artSize = Math.min(dp(310), screenWidth - dp(62));
+        artFrame.addView(playerArtwork,
+                new LinearLayout.LayoutParams(artSize, artSize));
+
         LinearLayout.LayoutParams artParams =
-                new LinearLayout.LayoutParams(dp(250), dp(250));
-        artParams.setMargins(0, dp(28), 0, dp(28));
-        player.addView(playerArtwork, artParams);
+                new LinearLayout.LayoutParams(-1, -2);
+        artParams.setMargins(0, dp(18), 0, dp(22));
+        player.addView(artFrame, artParams);
         loadCurrentArtwork();
 
         String title = currentIndex >= 0 && currentIndex < currentTracks.size()
@@ -724,28 +870,50 @@ public class MainActivity extends Activity {
         String artist = currentIndex >= 0 && currentIndex < currentTracks.size()
                 ? currentTracks.get(currentIndex).artist : "AUDIO HUB";
 
-        nowPlaying = makeText(title, 23, white);
-        nowPlaying.setTypeface(null, android.graphics.Typeface.BOLD);
-        nowPlaying.setGravity(Gravity.CENTER);
-        nowPlaying.setMaxLines(2);
-        player.addView(nowPlaying);
+        LinearLayout songInfo = makeRow();
+        songInfo.setGravity(Gravity.CENTER_VERTICAL);
 
-        playerArtist = makeText(artist, 14, gray);
-        playerArtist.setGravity(Gravity.CENTER);
-        playerArtist.setPadding(0, dp(7), 0, dp(22));
-        player.addView(playerArtist);
+        LinearLayout songLabels = new LinearLayout(this);
+        songLabels.setOrientation(LinearLayout.VERTICAL);
+
+        nowPlaying = makeText(title, 22, white);
+        nowPlaying.setTypeface(null, android.graphics.Typeface.BOLD);
+        nowPlaying.setMaxLines(2);
+        nowPlaying.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        songLabels.addView(nowPlaying);
+
+        playerArtist = makeText(artist, 13, 0xFFB5A9C4);
+        playerArtist.setPadding(0, dp(5), 0, 0);
+        playerArtist.setMaxLines(1);
+        playerArtist.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        songLabels.addView(playerArtist);
+
+        songInfo.addView(songLabels,
+                new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView heart = makeText("♫", 24, purple);
+        heart.setGravity(Gravity.CENTER);
+        songInfo.addView(heart,
+                new LinearLayout.LayoutParams(dp(42), dp(48)));
+        player.addView(songInfo);
 
         playerSeekBar = new SeekBar(this);
         playerSeekBar.setMax(1);
         playerSeekBar.setProgress(0);
-        player.addView(playerSeekBar,
-                new LinearLayout.LayoutParams(-1, dp(35)));
+        playerSeekBar.setProgressTintList(
+                android.content.res.ColorStateList.valueOf(0xFFB56CFF));
+        playerSeekBar.setThumbTintList(
+                android.content.res.ColorStateList.valueOf(white));
+        LinearLayout.LayoutParams seekParams =
+                new LinearLayout.LayoutParams(-1, dp(34));
+        seekParams.setMargins(0, dp(12), 0, 0);
+        player.addView(playerSeekBar, seekParams);
 
         LinearLayout timeRow = makeRow();
         timeRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        elapsedTimeText = makeText("00:00", 11, gray);
-        durationTimeText = makeText("00:00", 11, gray);
+        elapsedTimeText = makeText("00:00", 11, 0xFFB5A9C4);
+        durationTimeText = makeText("00:00", 11, 0xFFB5A9C4);
 
         timeRow.addView(elapsedTimeText,
                 new LinearLayout.LayoutParams(0, -2, 1));
@@ -782,23 +950,33 @@ public class MainActivity extends Activity {
 
         LinearLayout transport = makeRow();
         transport.setGravity(Gravity.CENTER);
-        transport.setPadding(0, dp(18), 0, dp(12));
+        transport.setPadding(0, dp(12), 0, dp(10));
 
         previousButton = makeButton("⏮");
         playPauseButton = makeButton(isPlaying ? "Ⅱ" : "▶");
         nextButton = makeButton("⏭");
 
         previousButton.setTextSize(20);
-        playPauseButton.setTextSize(23);
+        previousButton.setBackground(
+                roundedCard(0xFF211A2D, 0x445B3B79));
+
+        playPauseButton.setTextSize(25);
+        playPauseButton.setTextColor(0xFF160D20);
+        playPauseButton.setBackground(new GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0xFFD9A7FF, 0xFFA855F7}));
+        playPauseButton.setElevation(dp(8));
+
         nextButton.setTextSize(20);
+        nextButton.setBackground(
+                roundedCard(0xFF211A2D, 0x445B3B79));
 
         transport.addView(previousButton,
-                new LinearLayout.LayoutParams(0, dp(58), 1));
+                new LinearLayout.LayoutParams(0, dp(56), 1));
         transport.addView(playPauseButton,
-                new LinearLayout.LayoutParams(0, dp(58), 1.5f));
+                new LinearLayout.LayoutParams(0, dp(58), 1.35f));
         transport.addView(nextButton,
-                new LinearLayout.LayoutParams(0, dp(58), 1));
-
+                new LinearLayout.LayoutParams(0, dp(56), 1));
         player.addView(transport);
 
         previousButton.setOnClickListener(v ->
@@ -811,16 +989,29 @@ public class MainActivity extends Activity {
                         : PlaybackService.ACTION_RESUME));
 
         LinearLayout extras = makeRow();
+        extras.setGravity(Gravity.CENTER);
+        extras.setPadding(0, dp(5), 0, 0);
+
         Button micButton = makeButton("MIC");
         Button shuffleButton = makeButton(shuffle ? "SHUFFLE ON" : "SHUFFLE");
         Button repeatButton = makeButton(repeat ? "REPEAT ON" : "REPEAT");
 
+        micButton.setTextSize(10);
+        shuffleButton.setTextSize(10);
+        repeatButton.setTextSize(10);
+
+        micButton.setBackground(roundedCard(0xFF211A2D, 0x445B3B79));
+        shuffleButton.setBackground(roundedCard(
+                shuffle ? 0xFF482565 : 0xFF211A2D, 0x885B3B79));
+        repeatButton.setBackground(roundedCard(
+                repeat ? 0xFF482565 : 0xFF211A2D, 0x885B3B79));
+
         extras.addView(micButton,
-                new LinearLayout.LayoutParams(0, -2, 1));
+                new LinearLayout.LayoutParams(0, dp(43), 1));
         extras.addView(shuffleButton,
-                new LinearLayout.LayoutParams(0, -2, 1));
+                new LinearLayout.LayoutParams(0, dp(43), 1.25f));
         extras.addView(repeatButton,
-                new LinearLayout.LayoutParams(0, -2, 1));
+                new LinearLayout.LayoutParams(0, dp(43), 1.15f));
         player.addView(extras);
 
         micButton.setOnClickListener(v -> startVoiceCommand());
@@ -829,16 +1020,19 @@ public class MainActivity extends Activity {
             shuffle = !shuffle;
             updateModes();
             shuffleButton.setText(shuffle ? "SHUFFLE ON" : "SHUFFLE");
+            shuffleButton.setBackground(roundedCard(
+                    shuffle ? 0xFF482565 : 0xFF211A2D, 0x885B3B79));
         });
 
         repeatButton.setOnClickListener(v -> {
             repeat = !repeat;
             updateModes();
             repeatButton.setText(repeat ? "REPEAT ON" : "REPEAT");
+            repeatButton.setBackground(roundedCard(
+                    repeat ? 0xFF482565 : 0xFF211A2D, 0x885B3B79));
         });
 
-        content.addView(player,
-                new LinearLayout.LayoutParams(-1, -1));
+        content.addView(player, new LinearLayout.LayoutParams(-1, -1));
     }
 
     void loadCurrentArtwork() {
@@ -1140,7 +1334,6 @@ public class MainActivity extends Activity {
         playerHeading.setPadding(0, dp(22), 0, dp(8));
         page.addView(playerHeading);
 
-        addPlayerControls();
     }
 
     void showLibrary() {
@@ -1154,7 +1347,6 @@ public class MainActivity extends Activity {
             10, purple);
         content.addView(subtitle);
 
-        addPlayerControls();
 
         Button scanButton = makeButton("＋  SCAN / REFRESH MUSIC");
         content.addView(scanButton);
@@ -1585,7 +1777,6 @@ public class MainActivity extends Activity {
         content.addView(create);
         create.setOnClickListener(v -> createPlaylistDialog());
 
-        addPlayerControls();
 
         ScrollView scroll = new ScrollView(this);
         LinearLayout list = new LinearLayout(this);
@@ -1686,7 +1877,6 @@ public class MainActivity extends Activity {
         content.addView(back);
         back.setOnClickListener(v -> showPage("Playlists"));
 
-        addPlayerControls();
 
         ScrollView scroll = new ScrollView(this);
         LinearLayout list = new LinearLayout(this);
@@ -1754,7 +1944,6 @@ public class MainActivity extends Activity {
                 "Your Audio Hub music assistant. English + Swahili.",
                 12, gray));
 
-        addPlayerControls();
 
         LinearLayout chatLog = new LinearLayout(this);
         chatLog.setOrientation(LinearLayout.VERTICAL);
@@ -1868,7 +2057,6 @@ public class MainActivity extends Activity {
             12, gray);
         content.addView(info);
 
-        addPlayerControls();
 
         TextView moodTitle = makeText("CHOOSE YOUR MOOD", 12, purple);
         moodTitle.setTypeface(null, android.graphics.Typeface.BOLD);
