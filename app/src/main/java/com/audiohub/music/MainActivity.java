@@ -46,7 +46,7 @@ public class MainActivity extends Activity {
     int gray = 0xFFA1A1AA;
 
     LinearLayout root, content, trackList;
-    TextView status, nowPlaying;
+    TextView status, nowPlaying, playerArtist;
     Button playPauseButton, previousButton, nextButton;
     EditText searchInput;
 
@@ -74,8 +74,16 @@ public class MainActivity extends Activity {
             String artist = intent.getStringExtra("artist");
 
             if (nowPlaying != null) {
-                nowPlaying.setText("NOW PLAYING: " +
-                    (title == null ? "Audio Hub" : title));
+                nowPlaying.setText(
+                    title == null || title.isEmpty()
+                        ? "Nothing playing" : title
+                );
+            }
+            if (playerArtist != null) {
+                playerArtist.setText(
+                    artist == null || artist.isEmpty()
+                        ? "AUDIO HUB" : artist
+                );
             }
 
             if (status != null) {
@@ -482,25 +490,76 @@ public class MainActivity extends Activity {
     void addPlayerControls() {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(14), dp(12), dp(14), dp(12));
-        card.setBackground(roundedCard(0xFF171522, 0x665B3B79));
+        card.setPadding(dp(16), dp(16), dp(16), dp(16));
+        card.setBackground(roundedCard(0xFF151320, 0x995B3B79));
+        card.setElevation(dp(5));
 
-        nowPlaying = makeText("NOW PLAYING  •  AUDIO HUB", 12, purple);
+        TextView label = makeText(
+            "♫   NOW PLAYING", 11, purple
+        );
+        label.setTypeface(null, android.graphics.Typeface.BOLD);
+        card.addView(label);
+
+        LinearLayout hero = makeRow();
+        hero.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        hero.setPadding(0, dp(15), 0, dp(15));
+
+        TextView artwork = makeText("♫", 42, 0xFFFFFFFF);
+        artwork.setGravity(android.view.Gravity.CENTER);
+        artwork.setBackground(roundedCard(
+            0xFF39205F, 0xFFB56CFF
+        ));
+
+        LinearLayout.LayoutParams artParams =
+            new LinearLayout.LayoutParams(dp(92), dp(92));
+        artParams.setMargins(0, 0, dp(15), 0);
+        hero.addView(artwork, artParams);
+
+        LinearLayout details = new LinearLayout(this);
+        details.setOrientation(LinearLayout.VERTICAL);
+        details.setGravity(android.view.Gravity.CENTER_VERTICAL);
+
+        nowPlaying = makeText(
+            currentIndex >= 0 && currentIndex < currentTracks.size()
+                ? currentTracks.get(currentIndex).title
+                : "Choose a song",
+            17, white
+        );
         nowPlaying.setTypeface(null, android.graphics.Typeface.BOLD);
-        card.addView(nowPlaying);
+        nowPlaying.setMaxLines(2);
+        details.addView(nowPlaying);
+
+        playerArtist = makeText(
+            "AUDIO HUB  •  SIGNATURE PLAYER", 11, gray
+        );
+        playerArtist.setPadding(0, dp(6), 0, 0);
+        playerArtist.setMaxLines(1);
+        details.addView(playerArtist);
+
+        hero.addView(details,
+            new LinearLayout.LayoutParams(0, -2, 1));
+        card.addView(hero);
 
         LinearLayout transport = makeRow();
+        transport.setGravity(android.view.Gravity.CENTER);
+        transport.setPadding(0, dp(5), 0, dp(8));
 
-        previousButton = makeButton("PREV");
-        playPauseButton = makeButton(isPlaying ? "PAUSE" : "RESUME");
-        nextButton = makeButton("NEXT");
+        previousButton = makeButton("⏮");
+        playPauseButton = makeButton(
+            isPlaying ? "Ⅱ  PAUSE" : "▶  PLAY"
+        );
+        nextButton = makeButton("⏭");
+
+        previousButton.setTextSize(17);
+        nextButton.setTextSize(17);
+        playPauseButton.setTextSize(13);
 
         transport.addView(previousButton,
-            new LinearLayout.LayoutParams(0, -2, 1));
+            new LinearLayout.LayoutParams(0, dp(50), 1));
         transport.addView(playPauseButton,
-            new LinearLayout.LayoutParams(0, -2, 1.25f));
+            new LinearLayout.LayoutParams(0, dp(50), 1.6f));
         transport.addView(nextButton,
-            new LinearLayout.LayoutParams(0, -2, 1));
+            new LinearLayout.LayoutParams(0, dp(50), 1));
 
         card.addView(transport);
 
@@ -508,19 +567,19 @@ public class MainActivity extends Activity {
             sendAction(PlaybackService.ACTION_PREVIOUS));
         nextButton.setOnClickListener(v ->
             sendAction(PlaybackService.ACTION_NEXT));
-
         playPauseButton.setOnClickListener(v ->
             sendAction(isPlaying
                 ? PlaybackService.ACTION_PAUSE
                 : PlaybackService.ACTION_RESUME));
 
         LinearLayout extras = makeRow();
-
-        Button micButton = makeButton("MIC  VOICE");
+        Button micButton = makeButton("MIC");
         Button shuffleButton = makeButton(
-            shuffle ? "SHUFFLE ON" : "SHUFFLE OFF");
+            shuffle ? "SHUFFLE ON" : "SHUFFLE"
+        );
         Button repeatButton = makeButton(
-            repeat ? "REPEAT ON" : "REPEAT OFF");
+            repeat ? "REPEAT ON" : "REPEAT"
+        );
 
         extras.addView(micButton,
             new LinearLayout.LayoutParams(0, -2, 1));
@@ -528,7 +587,6 @@ public class MainActivity extends Activity {
             new LinearLayout.LayoutParams(0, -2, 1));
         extras.addView(repeatButton,
             new LinearLayout.LayoutParams(0, -2, 1));
-
         card.addView(extras);
 
         micButton.setOnClickListener(v -> startVoiceCommand());
@@ -536,18 +594,22 @@ public class MainActivity extends Activity {
         shuffleButton.setOnClickListener(v -> {
             shuffle = !shuffle;
             updateModes();
-            shuffleButton.setText(shuffle ? "SHUFFLE ON" : "SHUFFLE OFF");
+            shuffleButton.setText(
+                shuffle ? "SHUFFLE ON" : "SHUFFLE"
+            );
         });
 
         repeatButton.setOnClickListener(v -> {
             repeat = !repeat;
             updateModes();
-            repeatButton.setText(repeat ? "REPEAT ON" : "REPEAT OFF");
+            repeatButton.setText(
+                repeat ? "REPEAT ON" : "REPEAT"
+            );
         });
 
         LinearLayout.LayoutParams params =
             new LinearLayout.LayoutParams(-1, -2);
-        params.setMargins(0, dp(10), 0, dp(10));
+        params.setMargins(0, dp(12), 0, dp(14));
         content.addView(card, params);
     }
 
