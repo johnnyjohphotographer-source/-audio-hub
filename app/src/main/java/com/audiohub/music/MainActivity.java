@@ -1503,10 +1503,71 @@ public class MainActivity extends Activity {
         }
     }
 
+    String createGenrePlaylist(String genre) {
+        if (currentTracks == null || currentTracks.isEmpty()) {
+            return "Scan your music library first, then ask me again.";
+        }
+
+        String cleanGenre = genre.trim();
+        String[] keywords = {
+            "r&b", "rnb", "rhythm and blues", "soul", "neo soul",
+            "slow jam", "slow jams", "usher", "sza", "bryson",
+            "chris brown", "daniel caesar", "giveon", "frank ocean",
+            "brent faiyaz", "summer walker", "ella mai", "ne-yo",
+            "trey songz", "john legend", "alicia keys", "mary j blige",
+            "toni braxton", "boyz ii men", "brian mcknight",
+            "the weeknd", "jhené aiko"
+        };
+
+        List<AudioTrack> matches = new ArrayList<>();
+        for (AudioTrack track : currentTracks) {
+            String text = ((track.title == null ? "" : track.title) + " "
+                    + (track.artist == null ? "" : track.artist) + " "
+                    + (track.album == null ? "" : track.album))
+                    .toLowerCase(Locale.ROOT);
+
+            for (String keyword : keywords) {
+                if (text.contains(keyword)) {
+                    matches.add(track);
+                    break;
+                }
+            }
+        }
+
+        if (matches.isEmpty()) {
+            return "I couldn't identify R&B songs from your current music metadata. No playlist was created.";
+        }
+
+        String playlistName = cleanGenre;
+        int suffix = 2;
+        while (playlistStore.names().contains(playlistName)) {
+            playlistName = cleanGenre + " " + suffix++;
+        }
+
+        if (!playlistStore.create(playlistName)) {
+            return "I couldn't create the playlist. Please try again.";
+        }
+
+        for (AudioTrack track : matches) {
+            playlistStore.add(playlistName, track.id);
+        }
+
+        return "Created " + playlistName + " with " + matches.size()
+                + " songs. Open Playlists to find it.";
+    }
+
     void handleVoiceCommand(String command) {
         if (command == null) return;
 
         String spoken = command.trim().toLowerCase(Locale.ROOT);
+
+        if (spoken.contains("create") && spoken.contains("playlist")
+                && (spoken.contains("r&b") || spoken.contains("rnb")
+                || spoken.contains("r and b") || spoken.contains("rhythm and blues"))) {
+            String result = createGenrePlaylist("R&B");
+            Toast.makeText(this, result, Toast.LENGTH_LONG).show();
+            return;
+        }
 
         if (spoken.contains("pause") || spoken.contains("stop") ||
                 spoken.contains("simama")) {
@@ -1935,114 +1996,183 @@ public class MainActivity extends Activity {
     }
 
     void showAssistant() {
-        TextView heading = makeText("JARVIS AI", 25, white);
+        content.setPadding(dp(16), dp(12), dp(16), dp(12));
+
+        LinearLayout header = makeRow();
+        header.setGravity(android.view.Gravity.CENTER_VERTICAL);
+
+        TextView heading = makeText("JARVIS", 25, white);
         heading.setTypeface(null, android.graphics.Typeface.BOLD);
-        heading.setPadding(0, dp(12), 0, dp(5));
-        content.addView(heading);
+        header.addView(heading, new LinearLayout.LayoutParams(0, -2, 1));
 
-        content.addView(makeText(
-                "Your Audio Hub music assistant. English + Swahili.",
-                12, gray));
+        TextView status = makeText("● ONLINE LOCALLY", 10, purple);
+        header.addView(status);
+        content.addView(header);
 
-
-        LinearLayout chatLog = new LinearLayout(this);
-        chatLog.setOrientation(LinearLayout.VERTICAL);
-        chatLog.setPadding(dp(8), dp(8), dp(8), dp(8));
+        TextView subtitle = makeText(
+                "Your personal music assistant", 12, gray);
+        subtitle.setPadding(0, 0, 0, dp(14));
+        content.addView(subtitle);
 
         ScrollView chatScroll = new ScrollView(this);
         chatScroll.setFillViewport(true);
-        chatScroll.setBackground(roundedCard(0xFF171421, 0x554A3A62));
+        chatScroll.setClipToPadding(false);
+
+        LinearLayout chatLog = new LinearLayout(this);
+        chatLog.setOrientation(LinearLayout.VERTICAL);
+        chatLog.setPadding(dp(2), dp(12), dp(2), dp(16));
         chatScroll.addView(chatLog);
+
         content.addView(chatScroll,
-                new LinearLayout.LayoutParams(-1, dp(260)));
+                new LinearLayout.LayoutParams(-1, 0, 1));
 
         TextView welcome = makeText(
-                "Hello! I'm JARVIS. Ask me to play, pause, skip, search songs, shuffle or repeat.\n\nHabari! Niambie unataka kusikiliza wimbo gani.",
-                14, white);
-        welcome.setPadding(dp(12), dp(12), dp(12), dp(12));
+                "Hello! I'm JARVIS. ✦\n\n"
+                + "I can help you control your music, find songs "
+                + "and create playlists.\n\n"
+                + "Habari! Niambie nikusaidie nini leo.",
+                15, white);
+        welcome.setPadding(dp(16), dp(16), dp(16), dp(16));
         welcome.setBackground(roundedCard(0xFF211D30, 0x554A3A62));
         chatLog.addView(welcome);
 
-        LinearLayout inputRow = makeRow();
+        TextView suggestions = makeText(
+                "TRY ASKING", 11, gray);
+        suggestions.setTypeface(null, android.graphics.Typeface.BOLD);
+        suggestions.setPadding(dp(2), dp(20), 0, dp(8));
+        chatLog.addView(suggestions);
+
+        String[] prompts = {
+                "Create an R&B playlist",
+                "Shuffle my music",
+                "Play music",
+                "Play next song"
+        };
+
         EditText message = new EditText(this);
         message.setSingleLine(true);
-        message.setHint("Ask JARVIS...");
         message.setTextColor(white);
         message.setHintTextColor(gray);
-        message.setBackground(roundedCard(0xFF211D30, 0x554A3A62));
+        message.setHint("Message JARVIS...");
+        message.setTextSize(14);
+        message.setPadding(dp(14), 0, dp(14), 0);
+        message.setBackground(roundedCard(0xFF211D30, 0x665B3B79));
+
+        LinearLayout inputRow = makeRow();
+        inputRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        inputRow.setPadding(dp(4), dp(5), dp(4), dp(5));
+        inputRow.setBackground(roundedCard(0xFF171421, 0x665B3B79));
+
+        Button send = makeButton("➤");
         inputRow.addView(message,
-                new LinearLayout.LayoutParams(0, dp(52), 1));
+                new LinearLayout.LayoutParams(0, dp(50), 1));
+        LinearLayout.LayoutParams sendParams =
+                new LinearLayout.LayoutParams(dp(52), dp(48));
+        sendParams.setMargins(dp(8), 0, 0, 0);
+        inputRow.addView(send, sendParams);
 
-        Button send = makeButton("SEND");
-        inputRow.addView(send,
-                new LinearLayout.LayoutParams(dp(85), dp(52)));
-
-        send.setOnClickListener(v -> {
+        Runnable[] submit = new Runnable[1];
+        submit[0] = () -> {
             String command = message.getText().toString().trim();
             if (command.isEmpty()) return;
             message.setText("");
 
-            TextView userBubble = makeText(
-                    "YOU: " + command, 14, white);
-            userBubble.setPadding(dp(12), dp(10), dp(12), dp(10));
+            TextView userBubble = makeText(command, 14, white);
+            userBubble.setPadding(dp(14), dp(12), dp(14), dp(12));
             userBubble.setBackground(
-                    roundedCard(0xFF34304A, 0x554A3A62));
-            LinearLayout.LayoutParams userParams =
-                    new LinearLayout.LayoutParams(-1, -2);
-            userParams.setMargins(dp(18), dp(6), 0, dp(6));
-            chatLog.addView(userBubble, userParams);
-
-            handleVoiceCommand(command);
+                    roundedCard(0xFF49336D, 0x665B3B79));
+            LinearLayout.LayoutParams up =
+                    new LinearLayout.LayoutParams(-2, -2);
+            up.gravity = android.view.Gravity.RIGHT;
+            up.setMargins(dp(36), dp(12), 0, dp(5));
+            chatLog.addView(userBubble, up);
 
             String spoken = command.toLowerCase(Locale.ROOT);
             String reply;
 
-            if (spoken.contains("pause") || spoken.contains("stop") ||
-                    spoken.contains("simama") || spoken.contains("simamisha") ||
-                    spoken.contains("sitisha")) {
-                reply = "Sawa! Nimesitisha muziki. ⏸";
-            } else if (spoken.equals("play") || spoken.equals("resume") ||
-                    spoken.equals("endelea") || spoken.equals("cheza") ||
-                    spoken.equals("play music") ||
-                    spoken.equals("cheza muziki")) {
-                reply = "Sawa! Tuendelee kusikiliza. ▶";
-            } else if (spoken.contains("next") || spoken.contains("skip") ||
-                    spoken.contains("inayofuata") ||
-                    spoken.contains("wimbo mwingine")) {
-                reply = "Sawa! Wimbo unaofuata. ⏭";
-            } else if (spoken.contains("previous") || spoken.contains("back") ||
-                    spoken.contains("iliyopita")) {
-                reply = "Tunarudi kwenye wimbo uliopita. ⏮";
-            } else if (spoken.contains("shuffle") ||
-                    spoken.contains("changanya")) {
-                reply = "Nimebadilisha hali ya Shuffle.";
-            } else if (spoken.contains("repeat") ||
-                    spoken.contains("rudia")) {
-                reply = "Nimebadilisha hali ya Repeat.";
+            boolean createRnb = spoken.contains("playlist")
+                    && (spoken.contains("create") || spoken.contains("make")
+                    || spoken.contains("tengeneza"))
+                    && (spoken.contains("r&b") || spoken.contains("rnb")
+                    || spoken.contains("r and b")
+                    || spoken.contains("rhythm and blues"));
+
+            if (createRnb) {
+                reply = createGenrePlaylist("R&B");
             } else {
-                reply = "Nimepokea ujumbe wako. Jaribu amri ya kucheza, kusitisha, kuruka wimbo au kutafuta jina la wimbo.";
+                handleVoiceCommand(command);
+
+                if (spoken.contains("pause") || spoken.contains("stop")
+                        || spoken.contains("simama")
+                        || spoken.contains("simamisha")
+                        || spoken.contains("sitisha")) {
+                    reply = "Sawa! Nimesitisha muziki. ⏸";
+                } else if (spoken.equals("play")
+                        || spoken.equals("resume")
+                        || spoken.equals("endelea")
+                        || spoken.equals("cheza")
+                        || spoken.equals("play music")
+                        || spoken.equals("cheza muziki")) {
+                    reply = "Sawa! Tuendelee kusikiliza. ▶";
+                } else if (spoken.contains("next")
+                        || spoken.contains("skip")
+                        || spoken.contains("inayofuata")) {
+                    reply = "Sawa! Wimbo unaofuata. ⏭";
+                } else if (spoken.contains("previous")
+                        || spoken.contains("back")
+                        || spoken.contains("iliyopita")) {
+                    reply = "Tunarudi kwenye wimbo uliopita. ⏮";
+                } else if (spoken.contains("shuffle")
+                        || spoken.contains("changanya")) {
+                    reply = "Nimebadilisha hali ya Shuffle.";
+                } else if (spoken.contains("repeat")
+                        || spoken.contains("rudia")) {
+                    reply = "Nimebadilisha hali ya Repeat.";
+                } else {
+                    reply = "Nimepokea amri yako. Kwa sasa naweza "
+                            + "kudhibiti muziki na kutengeneza playlists.";
+                }
             }
 
-            TextView botBubble = makeText(
-                    "JARVIS: " + reply, 14, white);
-            botBubble.setPadding(dp(12), dp(10), dp(12), dp(10));
+            TextView botBubble = makeText(reply, 14, white);
+            botBubble.setPadding(dp(14), dp(12), dp(14), dp(12));
             botBubble.setBackground(
                     roundedCard(0xFF211D30, 0x554A3A62));
-            LinearLayout.LayoutParams botParams =
-                    new LinearLayout.LayoutParams(-1, -2);
-            botParams.setMargins(0, dp(6), dp(18), dp(6));
-            chatLog.addView(botBubble, botParams);
+            LinearLayout.LayoutParams bp =
+                    new LinearLayout.LayoutParams(-2, -2);
+            bp.setMargins(0, dp(5), dp(36), dp(8));
+            chatLog.addView(botBubble, bp);
 
             chatScroll.post(() ->
                     chatScroll.fullScroll(View.FOCUS_DOWN));
+        };
+
+        send.setOnClickListener(v -> submit[0].run());
+        message.setOnEditorActionListener((v, actionId, event) -> {
+            submit[0].run();
+            return true;
         });
+
+        for (String prompt : prompts) {
+            Button chip = makeButton(prompt);
+            chip.setTextSize(12);
+            LinearLayout.LayoutParams cp =
+                    new LinearLayout.LayoutParams(-1, dp(42));
+            cp.setMargins(0, 0, 0, dp(7));
+            chatLog.addView(chip, cp);
+            chip.setOnClickListener(v -> {
+                message.setText(prompt);
+                submit[0].run();
+            });
+        }
 
         content.addView(inputRow);
 
         TextView offline = makeText(
-                "OFFLINE MODE • Local music assistant",
+                "✦  JARVIS LOCAL ASSISTANT  •  OFFLINE",
                 10, purple);
-        offline.setPadding(0, dp(12), 0, 0);
+        offline.setGravity(android.view.Gravity.CENTER);
+        offline.setPadding(0, dp(10), 0, 0);
         content.addView(offline);
     }
 
