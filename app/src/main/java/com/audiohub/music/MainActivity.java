@@ -614,71 +614,262 @@ public class MainActivity extends Activity {
     }
 
     void showHome() {
-        TextView greeting = makeText("WELCOME BACK", 12, purple);
+        ScrollView homeScroll = new ScrollView(this);
+        homeScroll.setFillViewport(true);
+        homeScroll.setClipToPadding(false);
+
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(dp(2), dp(8), dp(2), dp(22));
+        homeScroll.addView(page);
+
+        content.addView(homeScroll,
+                new LinearLayout.LayoutParams(-1, -1));
+
+        LinearLayout top = makeRow();
+        top.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout welcome = new LinearLayout(this);
+        welcome.setOrientation(LinearLayout.VERTICAL);
+
+        TextView greeting = makeText("GOOD TO SEE YOU", 10, purple);
         greeting.setTypeface(null, android.graphics.Typeface.BOLD);
-        greeting.setPadding(dp(3), dp(8), 0, dp(4));
-        content.addView(greeting);
 
-        TextView heading = makeText(
-            "GOOD MUSIC.\nGREAT ENERGY.", 29, white);
+        TextView heading = makeText("Discover your sound.", 23, white);
         heading.setTypeface(null, android.graphics.Typeface.BOLD);
-        heading.setPadding(dp(3), 0, dp(3), dp(8));
-        content.addView(heading);
+        heading.setPadding(0, dp(4), 0, 0);
 
-        LinearLayout hero = new LinearLayout(this);
-        hero.setOrientation(LinearLayout.VERTICAL);
-        hero.setPadding(dp(20), dp(20), dp(20), dp(20));
+        welcome.addView(greeting);
+        welcome.addView(heading);
 
-        GradientDrawable heroBackground = new GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            new int[]{0xFF39205F, 0xFF18233B, 0xFF11111B});
-        heroBackground.setCornerRadius(dp(25));
-        heroBackground.setStroke(dp(1), 0x665B4A91);
-        hero.setBackground(heroBackground);
+        TextView profile = makeText("♫", 24, purple);
+        profile.setGravity(Gravity.CENTER);
+        profile.setBackground(roundedCard(0xFF211A30, 0x665B3B79));
 
-        TextView label = makeText("AUDIO HUB  /  SIGNATURE EDITION",
-            10, 0xFFD9FF58);
-        label.setTypeface(null, android.graphics.Typeface.BOLD);
-        hero.addView(label);
+        top.addView(welcome,
+                new LinearLayout.LayoutParams(0, -2, 1));
+        top.addView(profile,
+                new LinearLayout.LayoutParams(dp(48), dp(48)));
 
-        TextView heroTitle = makeText(
-            "YOUR SOUND.\nYOUR UNIVERSE.", 23, 0xFFFFFFFF);
-        heroTitle.setTypeface(null, android.graphics.Typeface.BOLD);
-        heroTitle.setPadding(0, dp(13), 0, dp(8));
-        hero.addView(heroTitle);
+        page.addView(top);
 
-        TextView heroInfo = makeText(
-            currentTracks.size() + " tracks in your music world",
-            12, 0xFFD0C8E0);
-        hero.addView(heroInfo);
+        TextView intro = makeText(
+                "Your music, your mood, your world.",
+                12, gray);
+        intro.setPadding(0, dp(5), 0, dp(18));
+        page.addView(intro);
 
-        Button scan = makeButton("＋  SCAN MY MUSIC");
-        LinearLayout.LayoutParams scanParams =
-            new LinearLayout.LayoutParams(-1, -2);
-        scanParams.setMargins(0, dp(17), 0, 0);
-        hero.addView(scan, scanParams);
-        scan.setOnClickListener(v -> checkAudioPermission());
+        LinearLayout featured = new LinearLayout(this);
+        featured.setOrientation(LinearLayout.VERTICAL);
+        featured.setPadding(dp(18), dp(18), dp(18), dp(18));
 
-        LinearLayout.LayoutParams heroParams =
-            new LinearLayout.LayoutParams(-1, -2);
-        heroParams.setMargins(0, dp(8), 0, dp(8));
-        content.addView(hero, heroParams);
+        GradientDrawable featuredBg = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{0xFF39205F, 0xFF20203B, 0xFF11111B});
+        featuredBg.setCornerRadius(dp(25));
+        featuredBg.setStroke(dp(1), 0x665B4A91);
+        featured.setBackground(featuredBg);
 
-        TextView section = makeText("YOUR PLAYER", 12, gray);
-        section.setTypeface(null, android.graphics.Typeface.BOLD);
-        section.setPadding(dp(3), dp(8), 0, 0);
-        content.addView(section);
+        LinearLayout featuredTop = makeRow();
+        featuredTop.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView featuredLabel = makeText(
+                "✦  FEATURED FOR YOU", 10, 0xFFD9FF58);
+        featuredLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+
+        TextView featuredTag = makeText("AUDIO HUB", 9, 0xFFD0C8E0);
+        featuredTag.setGravity(Gravity.CENTER);
+        featuredTag.setPadding(dp(9), dp(5), dp(9), dp(5));
+        featuredTag.setBackground(roundedCard(0x332A1740, 0x665B3B79));
+
+        featuredTop.addView(featuredLabel,
+                new LinearLayout.LayoutParams(0, -2, 1));
+        featuredTop.addView(featuredTag);
+        featured.addView(featuredTop);
+
+        TextView featuredTitle = makeText(
+                currentTracks.isEmpty()
+                        ? "Your next\nfavourite starts here."
+                        : "Your music.\nYour moment.",
+                27, white);
+        featuredTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        featuredTitle.setPadding(0, dp(24), 0, dp(7));
+        featured.addView(featuredTitle);
+
+        TextView featuredInfo = makeText(
+                currentTracks.isEmpty()
+                        ? "Build your collection and let the music flow."
+                        : currentTracks.size() + " tracks waiting in your collection.",
+                12, 0xFFD0C8E0);
+        featured.addView(featuredInfo);
+
+        Button discover = makeButton(
+                currentTracks.isEmpty()
+                        ? "＋  ADD YOUR MUSIC"
+                        : "♫  EXPLORE YOUR LIBRARY");
+        LinearLayout.LayoutParams discoverParams =
+                new LinearLayout.LayoutParams(-1, -2);
+        discoverParams.setMargins(0, dp(20), 0, 0);
+        featured.addView(discover, discoverParams);
+        discover.setOnClickListener(v -> {
+            if (currentTracks.isEmpty()) {
+                checkAudioPermission();
+            } else {
+                showPage("Library");
+            }
+        });
+
+        LinearLayout.LayoutParams featuredParams =
+                new LinearLayout.LayoutParams(-1, -2);
+        featuredParams.setMargins(0, dp(4), 0, dp(20));
+        page.addView(featured, featuredParams);
+
+        TextView quickTitle = makeText("YOUR SPACE", 16, white);
+        quickTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        page.addView(quickTitle);
+
+        TextView quickSubtitle = makeText(
+                "Everything you need, one tap away",
+                11, gray);
+        quickSubtitle.setPadding(0, dp(4), 0, dp(12));
+        page.addView(quickSubtitle);
+
+        LinearLayout shortcuts = makeRow();
+        shortcuts.setGravity(Gravity.CENTER_VERTICAL);
+
+        String[] shortcutNames = {
+                "LIBRARY", "PLAYLISTS", "AI DJ"
+        };
+        String[] shortcutIcons = {
+                "♫", "▤", "✦"
+        };
+        String[] shortcutPages = {
+                "Library", "Playlists", "AI DJ"
+        };
+
+        for (int i = 0; i < shortcutNames.length; i++) {
+            final String target = shortcutPages[i];
+
+            LinearLayout tile = new LinearLayout(this);
+            tile.setOrientation(LinearLayout.VERTICAL);
+            tile.setGravity(Gravity.CENTER);
+            tile.setPadding(dp(5), dp(15), dp(5), dp(15));
+            tile.setBackground(roundedCard(
+                    0xFF171722, 0x554A3A62));
+
+            TextView icon = makeText(shortcutIcons[i], 25, purple);
+            icon.setGravity(Gravity.CENTER);
+
+            TextView name = makeText(shortcutNames[i], 9, white);
+            name.setTypeface(null, android.graphics.Typeface.BOLD);
+            name.setGravity(Gravity.CENTER);
+            name.setPadding(0, dp(8), 0, 0);
+
+            tile.addView(icon);
+            tile.addView(name);
+
+            LinearLayout.LayoutParams tileParams =
+                    new LinearLayout.LayoutParams(0, -2, 1);
+            tileParams.setMargins(dp(3), 0, dp(3), 0);
+            shortcuts.addView(tile, tileParams);
+
+            tile.setOnClickListener(v -> showPage(target));
+        }
+
+        page.addView(shortcuts);
+
+        LinearLayout collectionHeading = makeRow();
+        collectionHeading.setGravity(Gravity.CENTER_VERTICAL);
+        collectionHeading.setPadding(0, dp(22), 0, dp(10));
+
+        TextView collectionTitle = makeText(
+                "IN YOUR COLLECTION", 16, white);
+        collectionTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+
+        TextView collectionCount = makeText(
+                currentTracks.size() + " TRACKS", 10, purple);
+        collectionCount.setTypeface(null, android.graphics.Typeface.BOLD);
+
+        collectionHeading.addView(collectionTitle,
+                new LinearLayout.LayoutParams(0, -2, 1));
+        collectionHeading.addView(collectionCount);
+        page.addView(collectionHeading);
+
+        if (currentTracks.isEmpty()) {
+            TextView empty = makeText(
+                    "Your music collection will appear here after scanning.",
+                    12, gray);
+            empty.setPadding(dp(15), dp(20), dp(15), dp(20));
+            empty.setBackground(roundedCard(0xFF171722, 0x554A3A62));
+            page.addView(empty);
+        } else {
+            int count = Math.min(4, currentTracks.size());
+
+            for (int i = 0; i < count; i++) {
+                final int index = i;
+                AudioTrack track = currentTracks.get(i);
+
+                String trackTitle = track.title == null
+                        ? "Unknown title" : track.title;
+                String trackArtist = track.artist == null
+                        ? "Unknown artist" : track.artist;
+
+                LinearLayout item = makeRow();
+                item.setGravity(Gravity.CENTER_VERTICAL);
+                item.setPadding(dp(10), dp(9), dp(10), dp(9));
+                item.setBackground(roundedCard(
+                        0xFF171722, 0x554A3A62));
+
+                TextView artwork = makeText("♫", 22, purple);
+                artwork.setGravity(Gravity.CENTER);
+                artwork.setBackground(roundedCard(
+                        0xFF29213B, 0x665B3B79));
+
+                item.addView(artwork,
+                        new LinearLayout.LayoutParams(dp(48), dp(48)));
+
+                LinearLayout details = new LinearLayout(this);
+                details.setOrientation(LinearLayout.VERTICAL);
+                details.setPadding(dp(12), 0, dp(5), 0);
+
+                TextView name = makeText(trackTitle, 13, white);
+                name.setTypeface(null, android.graphics.Typeface.BOLD);
+                name.setMaxLines(1);
+                name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+
+                TextView artist = makeText(trackArtist, 10, gray);
+                artist.setMaxLines(1);
+                artist.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                artist.setPadding(0, dp(4), 0, 0);
+
+                details.addView(name);
+                details.addView(artist);
+
+                item.addView(details,
+                        new LinearLayout.LayoutParams(0, -2, 1));
+
+                TextView play = makeText("▶", 16, purple);
+                play.setGravity(Gravity.CENTER);
+                item.addView(play,
+                        new LinearLayout.LayoutParams(dp(30), -2));
+
+                LinearLayout.LayoutParams itemParams =
+                        new LinearLayout.LayoutParams(-1, -2);
+                itemParams.setMargins(0, dp(4), 0, dp(4));
+                page.addView(item, itemParams);
+
+                item.setOnClickListener(v ->
+                        playQueue(currentTracks, index));
+            }
+        }
+
+        TextView playerHeading = makeText(
+                "NOW PLAYING", 16, white);
+        playerHeading.setTypeface(null, android.graphics.Typeface.BOLD);
+        playerHeading.setPadding(0, dp(22), 0, dp(8));
+        page.addView(playerHeading);
 
         addPlayerControls();
-
-        status = makeText(
-            currentTracks.isEmpty()
-                ? "Your music library is waiting. Scan to begin."
-                : currentTracks.size() + " songs ready to play",
-            12, gray);
-        status.setGravity(Gravity.CENTER);
-        status.setPadding(dp(5), dp(5), dp(5), dp(8));
-        content.addView(status);
     }
 
     void showLibrary() {
