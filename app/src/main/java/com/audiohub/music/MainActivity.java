@@ -226,6 +226,18 @@ public class MainActivity extends Activity {
                 white = 0xFFFFFFFF;
                 gray = 0xFFD6A0A5;
                 break;
+            case "Midnight Emerald":
+                background = 0xFF04120E;
+                purple = 0xFF1DB954;
+                white = 0xFFFFFFFF;
+                gray = 0xFF8FB5A3;
+                break;
+            case "Luxury Gold":
+                background = 0xFF0B0B0D;
+                purple = 0xFFD4AF37;
+                white = 0xFFF5F0E6;
+                gray = 0xFFA89F8A;
+                break;
             case "Pure Light":
                 background = 0xFFF5F5F7;
                 purple = 0xFF6D28D9;
@@ -658,7 +670,8 @@ public class MainActivity extends Activity {
 
         String[] themes = {
             "Midnight Purple", "AMOLED Black", "Cyber Blue",
-            "Crimson Red", "Pure Light", "Custom Theme"
+            "Crimson Red", "Pure Light",
+            "Midnight Emerald", "Luxury Gold", "Custom Theme"
         };
 
         for (String name : themes) {
