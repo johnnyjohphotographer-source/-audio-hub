@@ -310,11 +310,38 @@ public class MainActivity extends Activity {
             (int)(android.graphics.Color.blue(color) * 0.72f));
     }
 
-    GradientDrawable roundedCard(int color, int stroke) {
+    GradientDrawable roundedCardOld(int color, int stroke) {
         GradientDrawable shape = new GradientDrawable();
         shape.setColor(color);
         shape.setCornerRadius(dp(18));
         shape.setStroke(dp(1), stroke);
+        return shape;
+    }
+
+    int mixColor(int a, int b, float t) {
+        return android.graphics.Color.rgb(
+            (int)(android.graphics.Color.red(a) * (1 - t) + android.graphics.Color.red(b) * t),
+            (int)(android.graphics.Color.green(a) * (1 - t) + android.graphics.Color.green(b) * t),
+            (int)(android.graphics.Color.blue(a) * (1 - t) + android.graphics.Color.blue(b) * t));
+    }
+
+    GradientDrawable roundedCard(int color, int stroke) {
+        boolean light = (android.graphics.Color.red(background)
+            + android.graphics.Color.green(background)
+            + android.graphics.Color.blue(background)) / 3 > 140;
+        int fill;
+        if (android.graphics.Color.alpha(color) < 0xFF) {
+            fill = (color & 0xFF000000) | (purple & 0x00FFFFFF);
+        } else if (color == 0xFF39205F || color == 0xFF29213B || color == 0xFF49336D) {
+            fill = mixColor(background, purple, 0.28f);
+        } else {
+            fill = mixColor(background, light ? 0xFF000000 : 0xFFFFFFFF, light ? 0.05f : 0.08f);
+        }
+        int line = (stroke & 0xFF000000) | (purple & 0x00FFFFFF);
+        GradientDrawable shape = new GradientDrawable();
+        shape.setColor(fill);
+        shape.setCornerRadius(dp(18));
+        shape.setStroke(dp(1), line);
         return shape;
     }
 
@@ -330,10 +357,10 @@ public class MainActivity extends Activity {
             b.setAllCaps(false);
             b.setTextSize(12);
             b.setTypeface(null, android.graphics.Typeface.BOLD);
-            b.setTextColor(primary ? 0xFF10130A : white);
+            b.setTextColor(primary ? ((android.graphics.Color.red(purple) + android.graphics.Color.green(purple) + android.graphics.Color.blue(purple)) / 3 > 110 ? 0xFF10130A : 0xFFFFFFFF) : white);
 
             int[] colors = primary
-                ? new int[]{0xFFD9FF58, 0xFFA5D52B}
+                ? new int[]{mixColor(purple, 0xFFFFFFFF, 0.25f), purple}
                 : new int[]{purple, darken(purple)};
 
             GradientDrawable shape = new GradientDrawable(
